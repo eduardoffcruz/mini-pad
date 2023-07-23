@@ -1,5 +1,5 @@
 CC = gcc # compiler
-CFLAGS = -Wall -Wextra -pedantic -std=c99 -Iinclude -g # compilation flags
+CFLAGS = -std=c99 -Iinclude # compilation flags
 
 # Define directory names
 SRC_DIR = src
@@ -31,8 +31,10 @@ $(BUILD_DIR):
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
+debug: CFLAGS += -g -Wall -Wextra -pedantic
+debug: all
+
 # used to remove the obj files and the executable file when 'make clean' in ran
 clean:
 	rm -rf $(BUILD_DIR)
 # 	rm -rf $(OBJ_FILES) $(BUILD_DIR)/$(TARGET)
-
