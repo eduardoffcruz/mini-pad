@@ -1,20 +1,20 @@
-#include <stdio.h>
-#include <ctype.h>
 
-#include "terminal_manager.h"
+
+#include "terminal_handler.h"
+#include "editor.h"
+
+
 
 int main(void) {
     // change terminal mode from canonical to raw
     enable_raw_mode();
-
-    char byte_in;
+    init_editor();
+    
     // reads byte input while not EOF and not 'q'
-    while (read(STDIN_FILENO, &byte_in, 1) == 1 && byte_in != 'q'){
-        if(iscntrl(byte_in)){ // check for control characters (non-printable)
-            printf("%d\n", byte_in);
-        } else{
-            printf("%d ('%c')\n", byte_in, byte_in);
-        }
+    while(1){
+        // wait for one keypress and return it
+        editor_refresh_screen();
+        editor_process_keypress();
     }
 
     return 0;

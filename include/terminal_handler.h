@@ -1,10 +1,13 @@
-#ifndef TERMINAL_MANAGER_H
-#define TERMINAL_MANAGER_H
+#ifndef TERMINAL_HANDLER_H
+#define TERMINAL_HANDLER_H
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
 #include <termios.h>
-
+#include <stdint.h>
+#include <string.h>
 
 /*
 * Enable terminal's raw mode: so to read byte-by-byte instead of line-by-line.
@@ -17,6 +20,20 @@ void enable_raw_mode();
 */
 void disable_raw_mode();
 
+/*
+* Exit and output error.
+*/
+void die(const char *str);
+
+/*
+* Clear terminal.
+*/
+void clear(void);
+
+void position_cursor(uint8_t row, uint8_t col);
+void position_cursor_topleft();
+void clear_screen();
 
 
-#endif /* TERMINAL_MANAGER_H */
+
+#endif /* TERMINAL_HANDLER_H */

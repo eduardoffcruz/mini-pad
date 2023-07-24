@@ -37,4 +37,12 @@ debug: all
 # used to remove the obj files and the executable file when 'make clean' in ran
 clean:
 	rm -rf $(BUILD_DIR)
-# 	rm -rf $(OBJ_FILES) $(BUILD_DIR)/$(TARGET)
+#	rm -f $(OBJ_FILES) $(BUILD_DIR)/$(TARGET)
+
+
+#target: dependencies
+#    commands
+#
+#Target: The target is the file (or output) that the rule will build. It can be an executable, an object file, or any other file that is part of the build process.
+#Dependencies: Dependencies are the files that the target depends on. If any of the dependencies have changed since the last build, the target needs to be rebuilt. Dependencies are usually source code files, header files, or other intermediary files.
+#Commands: The commands section contains the instructions for how to build the target. These are the shell commands that are executed when the rule is invoked. They typically include compilation commands, linking commands, or any other steps required to generate the target.
