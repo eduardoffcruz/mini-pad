@@ -13,12 +13,12 @@
 * Enable terminal's raw mode: so to read byte-by-byte instead of line-by-line.
 * - By default, terminal is in canonical mode: keyboard input is only sent via STDIN when Enter is pressed.
 */
-void enable_raw_mode();
+void terminal_enable_raw_mode();
 
 /*
 * Reset terminal's mode back to default (canonical mode).
 */
-void disable_raw_mode();
+void terminal_disable_raw_mode();
 
 /*
 * Exit and output error.
@@ -26,13 +26,13 @@ void disable_raw_mode();
 void die(const char *str);
 
 /*
-* Clear terminal.
+* .
 */
-void clear(void);
-
 void position_cursor(uint8_t row, uint8_t col);
 void position_cursor_topleft();
 void clear_screen();
+void clear_all();
+void clear_line();
 
 
 

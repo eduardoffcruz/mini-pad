@@ -2,11 +2,11 @@
 
 struct termios original_cfg; 
 
-void enable_raw_mode(){
+void terminal_enable_raw_mode(){
     // save copy of the original terminal cfg
     if (tcgetattr(STDIN_FILENO, &original_cfg) == -1) die("tcgetattr");
     // set disable_raw_mode func to be called when exit is called
-    atexit(disable_raw_mode); 
+    atexit(terminal_disable_raw_mode); 
 
     // create and apply new terminal config to be in raw mode
     struct termios new_cfg = original_cfg;
@@ -14,20 +14,20 @@ void enable_raw_mode(){
     new_cfg.c_oflag &= ~(OPOST); // turn off all output post-processing
     new_cfg.c_cflag |= (CS8);
     new_cfg.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG); //c_lflag "local flags", c_iflag "input flags", c_oflag "output flags", c_cflag "control flags"
-    //new_cfg.c_cc[VMIN] = 0; // VMIN value sets the min number of bytes of input needed before read() can return
-    //new_cfg.c_cc[VTIME] = 1; // VMIN sets max amount of time to wait before read() returns
+    new_cfg.c_cc[VMIN] = 0; // VMIN value sets the min number of bytes of input needed before read() can return
+    new_cfg.c_cc[VTIME] = 1; // VMIN sets max amount of time to wait before read() returns
     
     // apply changed attrs to terminal (TCAFLUSH discards any unread input)
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_cfg) == -1) die("tcsetattr");
 }
 
-void disable_raw_mode(){
+void terminal_disable_raw_mode(){
     // reset terminal attrs back to original
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_cfg) == -1) die("tcsetattr");
 }
 
 void die(const char *str){
-    clear();
+    clear_all();
 
     perror(str); // looks at global errno var to indicate what error was
     exit(1);
@@ -35,6 +35,10 @@ void die(const char *str){
 
 void clear_screen(){
     write(STDOUT_FILENO, "\x1b[2J", 4); // clear the screen: <esc>[2J
+}
+
+void clear_line(){
+    write(STDOUT_FILENO, "\x1b[K", 3); // clear line: <esc>[K
 }
 
 void position_cursor(uint8_t row, uint8_t col){
@@ -47,9 +51,8 @@ void position_cursor_topleft(){
     write(STDOUT_FILENO, "\x1b[H", 3);
 }
 
-void clear(){
+void clear_all(){
     // Escape sequences instruct the terminal to do various text formatting tasks, such as coloring text, moving the cursor around, and clearing parts of the screen (see vt100.net/docs/vt100-ug/chapter3.html for complete explanation).
     clear_screen();
     position_cursor_topleft();
-
 }

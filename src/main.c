@@ -7,8 +7,8 @@
 
 int main(void) {
     // change terminal mode from canonical to raw
-    enable_raw_mode();
-    init_editor();
+    terminal_enable_raw_mode();
+    editor_init();
     
     // reads byte input while not EOF and not 'q'
     while(1){
