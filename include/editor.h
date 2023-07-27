@@ -3,25 +3,29 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#include <sys/ioctl.h>
-#include "terminal_handler.h"
-#include "append_buffer.h"
+#include "terminal.h"
+#include "data_structures.h"
+#include "key_mapping.h"
+#include "file_manager.h"
 
 #define APP_VERSION "1.0"
+#define WELCOME_MSG "Text editor -- version %s"
+
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-enum editor_key {
-    ARROW_LEFT = 1000,
-    ARROW_RIGHT,
-    ARROW_UP,
-    ARROW_DOWN
-};
 
-struct editor_cfg{
-    int cx, cy;
-    int screen_rows;
-    int screen_cols;
-    //struct abuf data_buffer;
+struct editor_state{
+    // cursor
+    int cursor_y, cursor_x; 
+    int render_x; // for rendering tabs
+    int prev_x; // for smoother scrolling
+    // window dimentions
+    int screen_rows_num, screen_cols_num;
+    // scroll
+    int row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
+    
+    struct text txt;
+    //struct abuf state_buffer;
 };
 
 /*
@@ -42,12 +46,8 @@ void editor_refresh_screen();
 /*
 * 
 */
-void editor_draw_rows(struct abuf *buffer);
+void editor_render_text(struct dynamic_buffer *buffer);
 
-/*
-* 
-*/
-int get_window_size(int *rows, int *cols);
 
 /*
 * 
@@ -57,6 +57,21 @@ void editor_init();
 /*
 * 
 */
+void editor_open_file();
+
+/*
+* 
+*/
 void editor_move_cursor(int key_val);
+
+/*
+* 
+*/
+void editor_scroll(void);
+
+/*
+* 
+*/
+int compute_render_x(line *ln, int cx);
 
 #endif /* EDITOR_H */

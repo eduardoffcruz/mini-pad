@@ -1,14 +1,15 @@
-
-
-#include "terminal_handler.h"
 #include "editor.h"
 
 
 
-int main(void) {
+int main(int argc, char *argv[]) {
     // change terminal mode from canonical to raw
     terminal_enable_raw_mode();
     editor_init();
+
+    if (argc >= 2){
+        editor_open_file(argv[1]);
+    }
     
     // reads byte input while not EOF and not 'q'
     while(1){
