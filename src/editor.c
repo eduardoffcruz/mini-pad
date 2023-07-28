@@ -8,7 +8,7 @@ void editor_init(){
     editor.cursor_y = 0;
     editor.render_x = 0;
     editor.prev_x = 0;
-    editor.row_offset = 0; // top of the file scroll
+    editor.row_offset = 0; // offset between top(y=0) and current view
     editor.col_offset = 0; // left of the file scroll
 
     editor.txt.lines_num = 0;
@@ -21,7 +21,7 @@ void editor_open_file(const char *filename){
     if (read_file_text(filename, &editor.txt) != 0) die("open_file");
 }
 
-void editor_scroll(void){
+void editor_line_scroll(void){
     //if (terminal_get_window_size(&(editor.screen_rows_num), &(editor.screen_cols_num)) == -1) die("terminal_get_window_size");
 
     editor.render_x = 0;
@@ -44,7 +44,7 @@ void editor_scroll(void){
 }
 
 void editor_refresh_screen(){
-    editor_scroll();
+    editor_line_scroll();
 
     struct dynamic_buffer buf = INIT_DYNAMIC_BUFFER;
 
@@ -58,6 +58,10 @@ void editor_refresh_screen(){
     append_buffer(&buf, cmd, strlen(cmd));
 
     append_buffer(&buf, "\x1b[?25h", 6); // show cursor
+     
+    /*char aux[100];
+    sprintf(aux,"[%d,%d,%d]",editor.row_offset,editor.cursor_y,editor.screen_rows_num);
+    append_buffer(&buf,aux,strlen(aux));*/
 
     write(STDOUT_FILENO, buf.bytes, buf.len);
     free_buffer(&buf);
@@ -129,25 +133,10 @@ void editor_process_keypress(){
         case ARROW_RIGHT:
             editor_move_cursor(key_val);
             break;
-            
-        case PAGE_UP: // all-up
-            editor.cursor_y = editor.row_offset;
-            // simulate scroll up
-            {
-                int times = editor.screen_rows_num-2;
-                while (times--) editor_move_cursor(ARROW_UP);
-            }
-            break;
-        case PAGE_DOWN: // all-down
-            editor.cursor_y = editor.row_offset + editor.screen_rows_num - 1;
-            if (editor.cursor_y > editor.txt.lines_num){
-                editor.cursor_y = editor.txt.lines_num;    
-            } 
-            // simulate scroll down
-            {
-                int times = editor.screen_rows_num-2;
-                while (times--) editor_move_cursor(ARROW_DOWN);
-            }
+
+        case PAGE_DOWN:
+        case PAGE_UP:
+            editor_page_scroll(key_val);
             break;
    
         case HOME_KEY: // all-left
@@ -158,6 +147,45 @@ void editor_process_keypress(){
             break;
   }
 }
+
+
+void editor_page_scroll(int key_val){
+    const int page_scroll_offset = editor.screen_rows_num-2;
+    switch(key_val){
+        case PAGE_DOWN:
+            if(editor.row_offset+editor.screen_rows_num >= editor.txt.lines_num){
+                editor.cursor_y = editor.txt.lines_num;
+            } else if (editor.cursor_y+page_scroll_offset > editor.txt.lines_num){
+                int y_offset = (editor.cursor_y - editor.row_offset);
+                editor.row_offset = editor.txt.lines_num - y_offset;
+                editor.cursor_y = editor.txt.lines_num;
+            } else{
+                editor.row_offset += page_scroll_offset;
+                editor.cursor_y += page_scroll_offset;
+            }
+            break;
+        case PAGE_UP:
+            if (editor.row_offset == 0){
+                editor.cursor_y = 0; // go to top of document
+            }
+            else if (editor.row_offset - page_scroll_offset < 0){
+                editor.cursor_y -= editor.row_offset;
+                editor.row_offset = 0; // fix view
+                //if (editor.cursor_y < 0){
+                //    editor.cursor_y += page_scroll_offset;
+                //}
+            } else{
+                editor.row_offset -= page_scroll_offset;
+                editor.cursor_y -= page_scroll_offset;
+            }
+            break;
+        default:
+            return;
+    }
+
+    manage_cursor_x();
+}
+
 
 void editor_move_cursor(int key_val){
     switch (key_val) {
@@ -202,7 +230,14 @@ void editor_move_cursor(int key_val){
             return;
     }
 
-    // Fix special case where cursor goes from end of long line to next smaller line (adjust cursor_x accordingly)
+    // Fix special case 
+    manage_cursor_x();
+    
+    return;
+}
+
+void manage_cursor_x(){
+    // Account for special case where cursor goes from end of long line to next smaller line (adjust cursor_x accordingly)
     int line_len;
     if (editor.cursor_y < editor.txt.lines_num){
         if (editor.cursor_x > (line_len = editor.txt.lines[editor.cursor_y].rendered_len)){
@@ -211,10 +246,8 @@ void editor_move_cursor(int key_val){
             editor.cursor_x = editor.prev_x;
         }
     }
-    
     return;
 }
-
 
 int compute_render_x(line *ln, int cx){
     int rx = 0;

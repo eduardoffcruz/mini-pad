@@ -65,13 +65,23 @@ void editor_open_file();
 void editor_move_cursor(int key_val);
 
 /*
-* 
+* flow
 */
-void editor_scroll(void);
+void editor_line_scroll(void);
 
 /*
 * 
 */
 int compute_render_x(line *ln, int cx);
+
+/*
+*
+*/
+void manage_cursor_x(void);
+
+/*
+*
+*/
+void editor_page_scroll(int key_val);
 
 #endif /* EDITOR_H */
