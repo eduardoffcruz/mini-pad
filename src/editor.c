@@ -20,7 +20,7 @@ void editor_init(){
     //editor.txt = INIT_TEXT;
 
     if (terminal_get_window_size(&editor.screen_height, &editor.screen_width) == -1) die("terminal_get_window_size");
-    editor.screen_height-=2; // to hold the status+info bar
+    editor.screen_height -= 2; // to hold the status+info bar
 }
 
 void editor_open_file(const char *filename){
