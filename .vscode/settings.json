@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "editor.h": "c",
+        "data_structures.h": "c",
+        "stdint.h": "c",
+        "key_mapping.h": "c",
+        "file_manager.h": "c"
+    }
+}

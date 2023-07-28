@@ -10,6 +10,8 @@ int main(int argc, char *argv[]) {
     if (argc >= 2){
         editor_open_file(argv[1]);
     }
+
+    editor_set_info("HELP: Ctrl-Q = quit");
     
     // reads byte input while not EOF and not 'q'
     while(1){

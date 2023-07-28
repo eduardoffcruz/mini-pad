@@ -82,8 +82,21 @@ int update_rendered(text *txt, int line_i)
 
 void free_text(text *txt){
     for (int i = 0; i < txt->lines_num; i++){
-        free(&(txt->lines[i].raw));
-        free(&(txt->lines[i].rendered));
+        free(txt->lines[i].raw);
+        free(txt->lines[i].rendered);
     }
     free(txt->lines);
+}
+
+// had a problem compiling with strdup from string.h
+char* strdup(const char* str) {
+    if (str == NULL) {
+        return NULL;
+    }
+    size_t len = strlen(str);
+    char* allocated_str = (char*)malloc((len + 1) * sizeof(char));
+    if (allocated_str != NULL) {
+        strcpy(allocated_str, str);
+    }
+    return allocated_str;
 }

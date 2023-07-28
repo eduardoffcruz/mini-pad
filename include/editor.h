@@ -2,6 +2,8 @@
 #define EDITOR_H
 
 #include <stdio.h>
+#include <time.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include "terminal.h"
 #include "data_structures.h"
@@ -10,6 +12,7 @@
 
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "Text editor -- version %s"
+#define INFO_PERIOD 8 // seconds
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -20,11 +23,17 @@ struct editor_state{
     int render_x; // for rendering tabs
     int prev_x; // for smoother scrolling
     // window dimentions
-    int screen_rows_num, screen_cols_num;
+    int screen_height, screen_width;
     // scroll
     int row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
     
+    char* filename;
     struct text txt;
+
+    char info[64];
+    int info_len;
+    time_t info_time;    
+    
     //struct abuf state_buffer;
 };
 
@@ -83,5 +92,21 @@ void manage_cursor_x(void);
 *
 */
 void editor_page_scroll(int key_val);
+
+/*
+*
+*/
+void editor_render_status_bar(struct dynamic_buffer *buf);
+
+/*
+*
+*/
+void editor_render_info_bar(struct dynamic_buffer *buf);
+
+/*
+*
+*/
+void editor_set_info(const char *fmt, ...);
+
 
 #endif /* EDITOR_H */

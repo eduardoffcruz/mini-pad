@@ -53,4 +53,7 @@ int append_line(text *txt, char *str, int len);
  */
 int update_rendered(text *txt, int line_i);
 
+
+char* strdup(const char* str);
+
 #endif /* DATA_STRUCTURES_H */
