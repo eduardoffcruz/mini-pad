@@ -55,7 +55,7 @@ void die(const char *str){
 
 void terminal_clear(){
     // Escape sequences instruct the terminal to do various text formatting tasks, such as coloring text, moving the cursor around, and clearing parts of the screen (see vt100.net/docs/vt100-ug/chapter3.html for complete explanation).
-    terminal_clear_screen();
+    terminal_wipe_screen();
     terminal_set_cursor_topleft();
 }
 

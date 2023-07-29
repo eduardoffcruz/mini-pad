@@ -35,7 +35,7 @@ int insert_char(line* ln, int i, char ch){
     if (i < 0 || i > ln->raw_len){
         i = ln->raw_len;
     }
-    if ((ln->raw = (line*)realloc(ln->raw, sizeof(char)*(ln->raw_len+2))) == NULL){
+    if ((ln->raw = (char*)realloc(ln->raw, sizeof(char)*(ln->raw_len+2))) == NULL){
         return -1;
     }
     memmove(&(ln->raw[i+1]), &(ln->raw[i]), ln->raw_len-i+1); // handles overlapping memory regions
@@ -43,6 +43,7 @@ int insert_char(line* ln, int i, char ch){
     ln->raw[i] = ch;
 
     update_rendered(ln);
+    return 0;
 }
 
 int update_rendered(line* ln){
@@ -57,7 +58,7 @@ int update_rendered(line* ln){
 
     // re-allocate rendered
     free(ln->rendered);
-    if ((ln->rendered = (char *)malloc(sizeof(char) * (raw_len + tabs * (TAB_SIZE - 1) + 1))) == NULL){
+    if ((ln->rendered = (char*)malloc(sizeof(char) * (raw_len + tabs * (TAB_SIZE - 1) + 1))) == NULL){
         return -1;
     }
     // render tabs according to TAB_SIZE

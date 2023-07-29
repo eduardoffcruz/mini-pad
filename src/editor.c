@@ -169,7 +169,7 @@ void editor_process_keypress(){
         case CTRL_KEY('q'):
             free(editor.filename);
             free_text(&editor.txt);
-            terminal_clear_all();
+            terminal_clear();
             exit(0);
             break;
 
