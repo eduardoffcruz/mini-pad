@@ -12,6 +12,9 @@
 
 #include "data_structures.h"
 
+
+/*** file operations ***/
+
 int read_file_text(const char *filename, struct text *txt);
 
 #endif /* FILE_MANAGER_H */

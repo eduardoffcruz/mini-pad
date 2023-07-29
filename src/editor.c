@@ -2,6 +2,9 @@
 
 struct editor_state editor;
 
+
+/*** editor operations ***/
+
 void editor_init(){
     //terminal_clear_all();
     editor.cursor_x = 0;
@@ -17,6 +20,7 @@ void editor_init(){
     editor.info[0] = 0;
     editor.info_len = 0;
     editor.info_time = 0;
+    editor.default_info_len = strlen(DEFAULT_INFO);
     //editor.txt = INIT_TEXT;
 
     if (terminal_get_window_size(&editor.screen_height, &editor.screen_width) == -1) die("terminal_get_window_size");
@@ -29,25 +33,17 @@ void editor_open_file(const char *filename){
     editor.filename = strdup(filename);
 }
 
-void editor_line_scroll(void){
-    editor.render_x = 0;
-    if (editor.cursor_y < editor.txt.lines_num){
-        editor.render_x = compute_render_x(&(editor.txt.lines[editor.cursor_y]), editor.cursor_x);
+void editor_insert_char(char ch){
+    if (editor.cursor_y == editor.txt.lines_num){
+        // add new line
+        append_line(&editor.txt, "", 0);
     }
-
-    // -- Check if cursors are outside of visible screen
-    // Vertical scroll
-    if(editor.cursor_y < editor.row_offset) // cursor_y is above visible window  
-        editor.row_offset = editor.cursor_y; // scroll to where cursor is
-    if(editor.cursor_y >= editor.screen_height + editor.row_offset) // cursor_y is past bottom visible window
-        editor.row_offset = editor.cursor_y - editor.screen_height + 1;
-    
-    // Horizontal scroll
-    if(editor.render_x < editor.col_offset)   
-        editor.col_offset = editor.render_x;
-    if(editor.render_x >= editor.screen_width + editor.col_offset) 
-        editor.col_offset = editor.render_x - editor.screen_width + 1;
+    // insert char at curr cursor location
+    if (insert_char(&editor.txt.lines[editor.cursor_y], editor.cursor_x, ch) != 0) die("insert_char");
 }
+
+
+/*** rendering ***/
 
 void editor_refresh_screen(){
     editor_line_scroll();
@@ -118,22 +114,6 @@ void editor_render_text(struct dynamic_buffer *buf) {
     //append_buffer(buf, "\r\n", 2);
 }
 
-void editor_set_info(const char *fmt, ...){
-    // Takes a format str and a variable number of arguments, like the printf family of functions
-    va_list args;
-    va_start(args, fmt);
-    editor.info_len = vsnprintf(editor.info, sizeof(editor.info), fmt, args); // safe!
-    va_end(args);
-    editor.info_time = time(NULL); // timestamp
-}
-
-void editor_render_info_bar(struct dynamic_buffer *buf){
-    append_buffer(buf, "\x1b[K", 3); // clear info bar
-    if (editor.info_len && time(NULL) - editor.info_time < INFO_PERIOD){
-        append_buffer(buf, editor.info, editor.info_len > editor.screen_width ? editor.screen_width : editor.info_len);
-    }
-}
-
 void editor_render_status_bar(struct dynamic_buffer *buf){
     char file_info[64], navigation_info[32];
     int file_info_len = snprintf(file_info, sizeof(file_info), "%.20s - %d lines", editor.filename ? editor.filename : "[no name]", editor.txt.lines_num);
@@ -152,18 +132,39 @@ void editor_render_status_bar(struct dynamic_buffer *buf){
     append_buffer(buf, "\r\n", 2);
 }
 
-int editor_read_key(){
+void editor_render_info_bar(struct dynamic_buffer *buf){
+    append_buffer(buf, "\x1b[K", 3); // clear info bar
+    if (editor.info_len && time(NULL) - editor.info_time < INFO_PERIOD){
+        append_buffer(buf, editor.info, editor.info_len > editor.screen_width ? editor.screen_width : editor.info_len);
+    } else {
+        append_buffer(buf, DEFAULT_INFO, editor.default_info_len > editor.screen_width ? editor.screen_width : editor.default_info_len);
+    }
+}
+
+void editor_set_info(const char *fmt, ...){
+    // Takes a format str and a variable number of arguments, like the printf family of functions
+    va_list args;
+    va_start(args, fmt);
+    editor.info_len = vsnprintf(editor.info, sizeof(editor.info), fmt, args); // safe!
+    va_end(args);
+    editor.info_time = time(NULL); // timestamp
+}
+
+
+/*** keypress handling ***/
+
+int editor_read_keypress(){
     int nread;
     char byte_in;
     while ((nread = read(STDIN_FILENO, &byte_in, 1)) != 1) {
         if (nread == -1 && errno != EAGAIN) die("read");
     }
 
-    return map_key(byte_in);
+    return map_keypress(byte_in);
 }
 
 void editor_process_keypress(){
-    int key_val = editor_read_key();
+    int key_val = editor_read_keypress();
     switch (key_val) {
         case CTRL_KEY('q'):
             free(editor.filename);
@@ -196,43 +197,7 @@ void editor_process_keypress(){
 }
 
 
-void editor_page_scroll(int key_val){
-    const int page_scroll_offset = editor.screen_height-2;
-    switch(key_val){
-        case PAGE_DOWN:
-            if(editor.row_offset+editor.screen_height >= editor.txt.lines_num){
-                editor.cursor_y = editor.txt.lines_num;
-            } else if (editor.cursor_y+page_scroll_offset > editor.txt.lines_num){
-                int y_offset = (editor.cursor_y - editor.row_offset);
-                editor.row_offset = editor.txt.lines_num - y_offset;
-                editor.cursor_y = editor.txt.lines_num;
-            } else{
-                editor.row_offset += page_scroll_offset;
-                editor.cursor_y += page_scroll_offset;
-            }
-            break;
-        case PAGE_UP:
-            if (editor.row_offset == 0){
-                editor.cursor_y = 0; // go to top of document
-            }
-            else if (editor.row_offset - page_scroll_offset < 0){
-                editor.cursor_y -= editor.row_offset;
-                editor.row_offset = 0; // fix view
-                //if (editor.cursor_y < 0){
-                //    editor.cursor_y += page_scroll_offset;
-                //}
-            } else{
-                editor.row_offset -= page_scroll_offset;
-                editor.cursor_y -= page_scroll_offset;
-            }
-            break;
-        default:
-            return;
-    }
-
-    manage_cursor_x();
-}
-
+/*** editor control ***/
 
 void editor_move_cursor(int key_val){
     switch (key_val) {
@@ -278,12 +243,72 @@ void editor_move_cursor(int key_val){
     }
 
     // Fix special case 
-    manage_cursor_x();
+    handle_cursor_x();
     
     return;
 }
 
-void manage_cursor_x(){
+void editor_line_scroll(void){
+    editor.render_x = 0;
+    if (editor.cursor_y < editor.txt.lines_num){
+        editor.render_x = compute_render_x(&(editor.txt.lines[editor.cursor_y]), editor.cursor_x);
+    }
+
+    // -- Check if cursors are outside of visible screen
+    // Vertical scroll
+    if(editor.cursor_y < editor.row_offset) // cursor_y is above visible window  
+        editor.row_offset = editor.cursor_y; // scroll to where cursor is
+    if(editor.cursor_y >= editor.screen_height + editor.row_offset) // cursor_y is past bottom visible window
+        editor.row_offset = editor.cursor_y - editor.screen_height + 1;
+    
+    // Horizontal scroll
+    if(editor.render_x < editor.col_offset)   
+        editor.col_offset = editor.render_x;
+    if(editor.render_x >= editor.screen_width + editor.col_offset) 
+        editor.col_offset = editor.render_x - editor.screen_width + 1;
+}
+
+void editor_page_scroll(int key_val){
+    const int page_scroll_offset = editor.screen_height-2;
+    switch(key_val){
+        case PAGE_DOWN:
+            if(editor.row_offset+editor.screen_height >= editor.txt.lines_num){
+                editor.cursor_y = editor.txt.lines_num;
+            } else if (editor.cursor_y+page_scroll_offset > editor.txt.lines_num){
+                int y_offset = (editor.cursor_y - editor.row_offset);
+                editor.row_offset = editor.txt.lines_num - y_offset;
+                editor.cursor_y = editor.txt.lines_num;
+            } else{
+                editor.row_offset += page_scroll_offset;
+                editor.cursor_y += page_scroll_offset;
+            }
+            break;
+        case PAGE_UP:
+            if (editor.row_offset == 0){
+                editor.cursor_y = 0; // go to top of document
+            }
+            else if (editor.row_offset - page_scroll_offset < 0){
+                editor.cursor_y -= editor.row_offset;
+                editor.row_offset = 0; // fix view
+                //if (editor.cursor_y < 0){
+                //    editor.cursor_y += page_scroll_offset;
+                //}
+            } else{
+                editor.row_offset -= page_scroll_offset;
+                editor.cursor_y -= page_scroll_offset;
+            }
+            break;
+        default:
+            return;
+    }
+
+    handle_cursor_x();
+}
+
+
+/*** auxiliar ***/
+
+void handle_cursor_x(){
     // Account for special case where cursor goes from end of long line to next smaller line (adjust cursor_x accordingly)
     int line_len;
     if (editor.cursor_y < editor.txt.lines_num){

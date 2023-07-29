@@ -10,10 +10,8 @@
 #include <string.h>
 #include <sys/ioctl.h>
 
-/*
-* 
-*/
-int terminal_get_window_size(int *rows, int *cols);
+
+/*** terminal mode***/
 
 /*
 * Enable terminal's raw mode: so to read byte-by-byte instead of line-by-line.
@@ -26,20 +24,41 @@ void terminal_enable_raw_mode();
 */
 void terminal_disable_raw_mode();
 
+
+/*** terminal info ***/
+
+/*
+* 
+*/
+int terminal_get_window_size(int *rows, int *cols);
+
+
+/*** terminal control ***/
+
 /*
 * Exit and output error.
 */
 void die(const char *str);
 
 /*
-* .
+* 
 */
-void terminal_position_cursor(uint8_t row, uint8_t col);
-void terminal_position_cursor_topleft();
-void terminal_clear_screen();
-void terminal_clear_all();
-void terminal_clear_line();
+void terminal_clear();
 
+/*
+* 
+*/
+void terminal_set_cursor_topleft();
+
+/*
+* 
+*/
+void terminal_wipe_screen();
+
+/*
+* 
+*/
+void terminal_wipe_line();
 
 
 #endif /* TERMINAL_H */

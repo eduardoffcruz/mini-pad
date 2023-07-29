@@ -1,5 +1,6 @@
 #include "file_manager.h"
 
+/*** file operations ***/
 
 int read_file_text(const char *filename, struct text *txt){
     FILE *fp; 

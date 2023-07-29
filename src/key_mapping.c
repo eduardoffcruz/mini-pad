@@ -1,6 +1,9 @@
 #include "key_mapping.h"
 
-int map_key(char byte_in){
+
+/*** keypress mapping***/
+
+int map_keypress(char byte_in){
     if(byte_in == '\x1b'){ // <ESC> == \x1b
         char seq[3];
 

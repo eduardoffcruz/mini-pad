@@ -3,6 +3,9 @@
 
 #include <unistd.h>
 
+
+/*** keypress mapping***/
+
 enum editor_key {
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
@@ -15,6 +18,6 @@ enum editor_key {
     DEL_KEY
 };
 
-int map_key(char byte_in);
+int map_keypress(char byte_in);
 
 #endif

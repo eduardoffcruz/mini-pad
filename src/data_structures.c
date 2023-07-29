@@ -1,27 +1,14 @@
 
 #include "data_structures.h"
 
-//
-int append_buffer(struct dynamic_buffer *buf, const char *str, int len){
-    char *new;
-    if ((new = realloc(buf->bytes, buf->len + len)) == NULL)
-        return -1;
 
-    memcpy(&new[buf->len], str, len);
-    buf->bytes = new;
-    buf->len += len;
+/*** text & line structures ***/
 
-    return 0;
-}
-
-void free_buffer(struct dynamic_buffer *buf){
-    free(buf->bytes);
-}
-
-//
 int append_line(text *txt, char *str, int len){
     // Re-allocate space for new line
-    txt->lines = (line *)realloc(txt->lines, sizeof(line) * (txt->lines_num + 1));
+    if((txt->lines = (line *)realloc(txt->lines, sizeof(line) * (txt->lines_num + 1))) == NULL){
+        return -1;
+    }
     int line_i = txt->lines_num;
 
     // RAW line
@@ -35,7 +22,7 @@ int append_line(text *txt, char *str, int len){
 
     // RENDERED line from RAW
     int err;
-    if ((err = update_rendered(txt, line_i)) != 0){
+    if ((err = update_rendered(&(txt->lines[line_i]))) != 0){
         return err;
     }
 
@@ -44,20 +31,33 @@ int append_line(text *txt, char *str, int len){
     return 0;
 }
 
-int update_rendered(text *txt, int line_i)
-{
+int insert_char(line* ln, int i, char ch){
+    if (i < 0 || i > ln->raw_len){
+        i = ln->raw_len;
+    }
+    if ((ln->raw = (line*)realloc(ln->raw, sizeof(char)*(ln->raw_len+2))) == NULL){
+        return -1;
+    }
+    memmove(&(ln->raw[i+1]), &(ln->raw[i]), ln->raw_len-i+1); // handles overlapping memory regions
+    ln->raw_len++;
+    ln->raw[i] = ch;
+
+    update_rendered(ln);
+}
+
+int update_rendered(line* ln){
     int tabs = 0;
-    int j, raw_len = txt->lines[line_i].raw_len;
+    int j, raw_len = ln->raw_len;
     // count tabs
     for (j = 0; j < raw_len; j++){
-        if (txt->lines[line_i].raw[j] == '\t'){
+        if (ln->raw[j] == '\t'){
             tabs++;
         }
     }
 
     // re-allocate rendered
-    free(txt->lines[line_i].rendered);
-    if ((txt->lines[line_i].rendered = (char *)malloc(sizeof(char) * (raw_len + tabs * (TAB_SIZE - 1) + 1))) == NULL){
+    free(ln->rendered);
+    if ((ln->rendered = (char *)malloc(sizeof(char) * (raw_len + tabs * (TAB_SIZE - 1) + 1))) == NULL){
         return -1;
     }
     // render tabs according to TAB_SIZE
@@ -65,18 +65,18 @@ int update_rendered(text *txt, int line_i)
     for (j = 0; j < raw_len; j++)
     {
         char raw_byte;
-        if ((raw_byte = txt->lines[line_i].raw[j]) == '\t'){
-            txt->lines[line_i].rendered[ind++] = ' '; // <space>
+        if ((raw_byte = ln->raw[j]) == '\t'){
+            ln->rendered[ind++] = ' '; // <space>
             while (ind % TAB_SIZE){
-                txt->lines[line_i].rendered[ind++] = ' '; // <space>
+                ln->rendered[ind++] = ' '; // <space>
             }
         } else{
-            txt->lines[line_i].rendered[ind++] = raw_byte;
+            ln->rendered[ind++] = raw_byte;
         }
     }
 
-    txt->lines[line_i].rendered[ind] = 0; // end-of-line
-    txt->lines[line_i].rendered_len = ind;
+    ln->rendered[ind] = 0; // end-of-line
+    ln->rendered_len = ind;
     return 0;
 }
 
@@ -87,6 +87,28 @@ void free_text(text *txt){
     }
     free(txt->lines);
 }
+
+
+/*** dynamic buffer structure***/
+
+int append_buffer(struct dynamic_buffer *buf, const char *str, int len){
+    char *new;
+    if ((new = (char*)realloc(buf->bytes, sizeof(char)*(buf->len + len))) == NULL)
+        return -1;
+
+    memcpy(&new[buf->len], str, len);
+    buf->bytes = new;
+    buf->len += len;
+
+    return 0;
+}
+
+void free_buffer(struct dynamic_buffer *buf){
+    free(buf->bytes);
+}
+
+
+/*** auxiliar ***/
 
 // had a problem compiling with strdup from string.h
 char* strdup(const char* str) {
