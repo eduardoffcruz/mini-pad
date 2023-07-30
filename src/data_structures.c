@@ -81,6 +81,46 @@ int update_rendered(line* ln){
     return 0;
 }
 
+char* text_to_data(text* txt, int text_size){
+	char *data;
+
+	if ((data = (char *)malloc(text_size)) == NULL){
+		return NULL;
+	}
+
+	char *p = data;
+	for (int line_i = 0; line_i < txt->lines_num; line_i++){
+		int curr_line_len = txt->lines[line_i].raw_len;
+		memcpy(p, txt->lines[line_i].raw, sizeof(char)*curr_line_len);
+		p += curr_line_len;
+		*(p++) = '\n';
+	}
+
+	return data;
+}
+
+int compute_text_size(text* txt){
+	int text_size = 0;
+	for (int i = 0; i < txt->lines_num; i++){
+		text_size += txt->lines[i].raw_len + 1; // including newline
+	}
+	return text_size*sizeof(char);
+}
+
+unsigned long compute_text_crc32(text *txt, size_t size, int* err){
+    char* data = text_to_data(txt, size);
+    if (data == NULL){
+        *err = -1; // error converting text to char*
+        return 0L;
+    }
+    
+    unsigned long crc = compute_crc32(data, size);
+    free(data);
+
+    *err = 0;
+    return crc;
+}
+
 void free_text(text *txt){
     for (int i = 0; i < txt->lines_num; i++){
         free(txt->lines[i].raw);
@@ -110,6 +150,12 @@ void free_buffer(struct dynamic_buffer *buf){
 
 
 /*** auxiliar ***/
+
+unsigned long compute_crc32(const char* data, size_t size){
+	unsigned long crc = crc32(0L, Z_NULL, 0);
+	crc = crc32(crc, (const Bytef*)data, size);
+	return crc;
+}
 
 // had a problem compiling with strdup from string.h
 char* strdup(const char* str) {

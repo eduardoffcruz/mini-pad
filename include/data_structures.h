@@ -4,20 +4,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-
-/*** text & line ***/
+#include <fcntl.h>
+#include <zlib.h>
+#include <unistd.h>
 
 #define TAB_SIZE 8 // spaces for identation
+
+#define INIT_DYNAMIC_BUFFER {NULL, 0}
+
+/*** text & line ***/
 
 typedef struct line{
 	char *raw;
 	int raw_len;
+	
 	char *rendered;
 	int rendered_len;
 } line;
 
 typedef struct text{
+	// for modification verification
+	size_t saved_size;
+	unsigned long saved_crc;
+	
 	line *lines;
 	int lines_num;
 } text;
@@ -38,13 +47,27 @@ int insert_char(line* ln, int i, char ch);
 int update_rendered(line *ln);
 
 /*
+*
+*/
+char* text_to_data(text* txt, int text_size);
+
+/*
+*
+*/
+int compute_text_size(text* txt);
+
+/*
+*
+*/
+unsigned long compute_text_crc32(text *txt, size_t size, int* err);
+
+/*
  *
  */
 void free_text(text *txt);
 
 
 /*** dynamic buffer ***/
-#define INIT_DYNAMIC_BUFFER {NULL, 0}
 
 struct dynamic_buffer{
 	char *bytes;
@@ -63,6 +86,16 @@ void free_buffer(struct dynamic_buffer *arr);
 
 
 /*** auxiliar ***/
+
+/*
+*
+*/
+unsigned long compute_crc32(const char* data, size_t size);
+
+/*
+*
+*/
+unsigned long compute_text_crc32(text *txt, size_t size, int* err);
 
 /*
 *

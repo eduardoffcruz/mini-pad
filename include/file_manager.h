@@ -15,6 +15,8 @@
 
 /*** file operations ***/
 
-int read_file_text(const char *filename, struct text *txt);
+int read_file_to_text(const char *filename, struct text *txt);
+
+int save_text_to_file(text* txt, size_t size, const char *filename);
 
 #endif /* FILE_MANAGER_H */

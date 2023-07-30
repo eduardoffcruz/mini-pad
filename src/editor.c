@@ -5,8 +5,8 @@ struct editor_state editor;
 
 /*** editor operations ***/
 
-void editor_init(){
-    //terminal_clear_all();
+void editor_init(void){
+    //terminal_clear_all(void);
     editor.cursor_x = 0;
     editor.cursor_y = 0;
     editor.render_x = 0;
@@ -16,6 +16,8 @@ void editor_init(){
 
     editor.filename = NULL;
     editor.txt.lines_num = 0;
+    editor.txt.saved_crc = 0L;
+    editor.txt.saved_size = 0;
 
     editor.info[0] = 0;
     editor.info_len = 0;
@@ -28,7 +30,9 @@ void editor_init(){
 }
 
 void editor_open_file(const char *filename){
-    if (read_file_text(filename, &editor.txt) != 0) die("open_file");
+    if (read_file_to_text(filename, &editor.txt) != 0) die("open_file");
+
+    // Record filename of currently opened file, in editor's sata
     free(editor.filename);
     editor.filename = strdup(filename);
 }
@@ -42,10 +46,58 @@ void editor_insert_char(char ch){
     if (insert_char(&editor.txt.lines[editor.cursor_y], editor.cursor_x, ch) != 0) die("insert_char");
 }
 
+void editor_save_file(void){
+    int err;
+    // Request filename if NULL
+    if (editor.filename == NULL){
+        // TODO: request filename
+        return;
+    }
+
+    // Verify wether text has been modified using crc32
+    // - comparison of text's size reduces crc32 collision problem since only the crc32 of same sized texts is compared. 
+    unsigned long curr_crc = 0L;
+    size_t curr_size = compute_text_size(&editor.txt);
+    if (curr_size == editor.txt.saved_size){
+        // check crc32 to be confident content was modified
+        curr_crc = compute_text_crc32(&editor.txt, curr_size, &err);
+        if (err!=0){
+            editor_set_info("Failed to save file: unable to verify text changes.");
+            return;
+        }
+        if(curr_crc == editor.txt.saved_crc){
+            editor_set_info("Saved.");
+            return;
+        }
+    }
+
+    // Save modified text to file
+    err = save_text_to_file(&editor.txt, curr_size, editor.filename);
+    switch(err){
+        case 0:
+            // Update saved_crc and saved_size
+            editor.txt.saved_crc = (curr_crc == 0L ? compute_text_crc32(&editor.txt, curr_size, &err) : curr_crc);
+            editor.txt.saved_size = curr_size;
+            editor_set_info("Your changes have been saved.");
+            break;
+        case -1:
+            editor_set_info("Failed to save file: no filename");
+            break;
+        case -2:
+        case -3:
+        case -4:
+        case -5:
+            editor_set_info("Failed to save file: %s", strerror(errno));
+            break;
+    }
+
+    return;    
+}
+
 
 /*** rendering ***/
 
-void editor_refresh_screen(){
+void editor_refresh_screen(void){
     editor_line_scroll();
 
     struct dynamic_buffer buf = INIT_DYNAMIC_BUFFER;
@@ -153,7 +205,7 @@ void editor_set_info(const char *fmt, ...){
 
 /*** keypress handling ***/
 
-int editor_read_keypress(){
+int editor_read_keypress(void){
     int nread;
     char byte_in;
     while ((nread = read(STDIN_FILENO, &byte_in, 1)) != 1) {
@@ -163,14 +215,21 @@ int editor_read_keypress(){
     return map_keypress(byte_in);
 }
 
-void editor_process_keypress(){
+void editor_process_keypress(void){
     int key_val = editor_read_keypress();
     switch (key_val) {
+        case ENTER: //
+            break;
+
         case CTRL_KEY('q'):
             free(editor.filename);
             free_text(&editor.txt);
             terminal_clear();
             exit(0);
+            break;
+
+        case CTRL_KEY('s'):
+            editor_save_file();
             break;
 
         case ARROW_UP:
@@ -192,6 +251,21 @@ void editor_process_keypress(){
             if(editor.cursor_y < editor.txt.lines_num){
                 editor.cursor_x = editor.txt.lines[editor.cursor_y].raw_len;
             }
+            break;
+
+        case BACKSPACE:
+        case CTRL_KEY('h'):
+        case DEL_KEY:
+            break;
+
+
+        case CTRL_KEY('l'): // refresh terminal cmd
+        case '\x1b': // ESC
+            break; // do nothing
+
+        default:
+            editor_insert_char((char)key_val);
+            editor.cursor_x++;
             break;
   }
 }
@@ -308,7 +382,7 @@ void editor_page_scroll(int key_val){
 
 /*** auxiliar ***/
 
-void handle_cursor_x(){
+void handle_cursor_x(void){
     // Account for special case where cursor goes from end of long line to next smaller line (adjust cursor_x accordingly)
     int line_len;
     if (editor.cursor_y < editor.txt.lines_num){

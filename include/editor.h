@@ -12,7 +12,7 @@
 
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "Text editor -- version %s"
-#define DEFAULT_INFO "HELP: Ctrl-Q = quit"
+#define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit"
 #define INFO_PERIOD 8 // seconds
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -44,17 +44,22 @@ struct editor_state{
 /*
 * 
 */
-void editor_init();
+void editor_init(void);
 
 /*
 * 
 */
-void editor_open_file();
+void editor_open_file(const char *filename);
 
 /*
 *
 */
 void editor_insert_char(char ch);
+
+/*
+*
+*/
+void editor_save_file(void);
 
 
 /*** rendering ***/
@@ -62,7 +67,7 @@ void editor_insert_char(char ch);
 /*
 * 
 */
-void editor_refresh_screen();
+void editor_refresh_screen(void);
 
 /*
 * 
@@ -90,12 +95,12 @@ void editor_set_info(const char *fmt, ...);
 /*
 *
 */
-int editor_read_keypress();
+int editor_read_keypress(void);
 
 /*
 *
 */
-void editor_process_keypress();
+void editor_process_keypress(void);
 
 
 /*** editor control ***/

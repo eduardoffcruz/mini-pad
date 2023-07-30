@@ -7,6 +7,8 @@
 /*** keypress mapping***/
 
 enum editor_key {
+    ENTER = '\r',
+    BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,
     ARROW_UP,

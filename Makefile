@@ -18,7 +18,7 @@ all: $(TARGET)
 
 # This rule specifies how to build the executable
 $(TARGET): $(OBJ_FILES)
-	$(CC) $(CFLAGS) $(OBJ_FILES) -o $(BUILD_DIR)/$(TARGET)
+	$(CC) $(CFLAGS) $(OBJ_FILES) -o $(BUILD_DIR)/$(TARGET) -lz
 
 # Rule for compiling individual src files to obj files.
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)  # The | ensures the directory is created before compiling
