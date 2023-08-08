@@ -8,6 +8,7 @@
 
 enum editor_key {
     ENTER = '\r',
+    ESC = '\x1b',
     BACKSPACE = 127,
     ARROW_LEFT = 1000,
     ARROW_RIGHT,

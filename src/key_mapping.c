@@ -4,15 +4,15 @@
 /*** keypress mapping***/
 
 int map_keypress(char byte_in){
-    if(byte_in == '\x1b'){ // <ESC> == \x1b
+    if(byte_in == ESC){ // <ESC> == \x1b
         char seq[3];
 
-        if(read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b'; // no mapping: <ESC>
-        if(read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b'; // no mapping: <ESC>
+        if(read(STDIN_FILENO, &seq[0], 1) != 1) return ESC; // no mapping: <ESC>
+        if(read(STDIN_FILENO, &seq[1], 1) != 1) return ESC; // no mapping: <ESC>
         
         if(seq[0] == '['){
             if(seq[1] >= '0' && seq[1] <= '9'){
-                if(read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+                if(read(STDIN_FILENO, &seq[2], 1) != 1) return ESC;
                 if (seq[2] == '~'){
                     switch (seq[1]) {
                         case '1': // \x1b[1~
@@ -43,7 +43,7 @@ int map_keypress(char byte_in){
                 case 'F': return END_KEY; // \x1bOF
             }
         }
-        return '\x1b'; // no mapping: <ESC>
+        return ESC; // no mapping: <ESC>
     }
 
     return byte_in; // no mapping

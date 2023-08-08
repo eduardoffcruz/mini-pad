@@ -19,7 +19,7 @@ int read_file_to_text(const char *filename, struct text *txt){
             raw_len--; // strip '\r\n' from line
         }
 
-        if ((err = append_line(txt, str, raw_len)) != 0){
+        if ((err = append_line(txt, txt->lines_num, str, raw_len)) != 0){
             return err;
         }
         text_size += raw_len+1;
@@ -28,9 +28,6 @@ int read_file_to_text(const char *filename, struct text *txt){
     free(str);
     fclose(fp);
     
-    txt->saved_size = text_size;
-    txt->saved_crc = compute_text_crc32(txt, text_size, &err);
-
     return 0;
 }
 
@@ -49,7 +46,7 @@ int save_text_to_file(text* txt, size_t size, const char *filename){
 
     // create temporary file
     char tmp_filename[256];
-    snprintf(tmp_filename, sizeof(tmp_filename), ".tmp_%s", filename);
+    snprintf(tmp_filename, sizeof(tmp_filename), ".%s.swp", filename);
     
     int tmp_fd=-1;
     if((tmp_fd = open(tmp_filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IROTH)) == -1){

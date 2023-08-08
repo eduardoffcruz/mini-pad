@@ -30,7 +30,7 @@ void terminal_disable_raw_mode(void);
 /*
 * 
 */
-int terminal_get_window_size(int *rows, int *cols);
+int terminal_get_window_size(unsigned short *rows, unsigned short *cols);
 
 
 /*** terminal control ***/

@@ -32,7 +32,7 @@ void terminal_disable_raw_mode(){
 
 /*** terminal info ***/
 
-int terminal_get_window_size(int *rows, int *cols){
+int terminal_get_window_size(unsigned short *rows, unsigned short *cols){
     struct winsize ws;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
         return -1;

@@ -11,29 +11,33 @@
 #include "file_manager.h"
 
 #define APP_VERSION "1.0"
-#define WELCOME_MSG "Text editor -- version %s"
+#define WELCOME_MSG "minipad editor -- version %s"
 #define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit"
+#define UNSAVED_QUIT_INFO "Unsaved changes: Ctrl-S = save & quit | Ctrl-Q = quit | Ctrl-C = cancel"
 #define INFO_PERIOD 8 // seconds
 
+#define True 1
+#define False 0
 #define CTRL_KEY(k) ((k) & 0x1f)
+
 
 struct editor_state{
     // cursor
-    int cursor_y, cursor_x; 
-    int render_x; // for rendering tabs
-    int prev_x; // for smoother scrolling
+    unsigned long cursor_y, cursor_x; 
+    unsigned long render_x; // for rendering tabs
+    unsigned long prev_x; // for smoother scrolling
     // window dimentions
-    int screen_height, screen_width;
+    unsigned short screen_height, screen_width;
     // scroll
-    int row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
+    unsigned long row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
     
     char* filename;
-    struct text txt;
+    struct text* txt;
 
-    char info[64];
-    int info_len;
+    char info[256];
+    unsigned int info_len;
     time_t info_time;  
-    int default_info_len;  
+    unsigned int default_info_len;  
     
     //struct abuf state_buffer;
 };
@@ -52,9 +56,24 @@ void editor_init(void);
 void editor_open_file(const char *filename);
 
 /*
+* 
+*/
+void editor_empty_file(void);
+
+/*
 *
 */
 void editor_insert_char(char ch);
+
+/*
+*
+*/
+void editor_delete_char(void);
+
+/*
+*
+*/
+void editor_insert_newline(void);
 
 /*
 *
@@ -89,6 +108,11 @@ void editor_render_info_bar(struct dynamic_buffer *buf);
 */
 void editor_set_info(const char *fmt, ...);
 
+/*
+*
+*/
+void editor_update_text_window_size(void);
+
 
 /*** keypress handling ***/
 
@@ -120,12 +144,22 @@ void editor_line_scroll(void);
 */
 void editor_page_scroll(int key_val);
 
+/*
+*
+*/
+void editor_quit(void);
+
+/*
+*
+*/
+char* editor_prompt(char* prompt);
+
 
 /*** auxiliar ***/
 /*
 * 
 */
-int compute_render_x(line *ln, int cx);
+unsigned long compute_render_x(line *ln, unsigned long cx);
 
 /*
 *

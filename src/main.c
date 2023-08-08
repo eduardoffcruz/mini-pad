@@ -9,6 +9,8 @@ int main(int argc, char *argv[]) {
 
     if (argc >= 2){
         editor_open_file(argv[1]);
+    } else{
+        editor_empty_file();
     }
 
     //editor_set_info("HELP: Ctrl-Q = quit");

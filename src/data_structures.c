@@ -4,12 +4,29 @@
 
 /*** text & line structures ***/
 
-int append_line(text *txt, char *str, int len){
-    // Re-allocate space for new line
-    if((txt->lines = (line *)realloc(txt->lines, sizeof(line) * (txt->lines_num + 1))) == NULL){
+text* new_text(void){
+    text *txt;
+    if ((txt = (text*)malloc(sizeof(text))) == NULL){
+        return NULL;
+    }
+    txt->lines = NULL;
+    txt->lines_num = 0;
+    txt->modified = 0;
+    return txt;
+}
+
+int append_line(text *txt, unsigned long line_i, char *str, unsigned long len){
+    if (line_i > txt->lines_num){ // line_i < 0 ||
         return -1;
     }
-    int line_i = txt->lines_num;
+
+    // Re-allocate space for new line
+    if((txt->lines = (line*)realloc(txt->lines, sizeof(line) * (txt->lines_num + 1))) == NULL){
+        return -1;
+    }
+    memmove(&(txt->lines[line_i+1]), &(txt->lines[line_i]), sizeof(line)*(txt->lines_num-line_i));
+
+    //int line_i = txt->lines_num;
 
     // RAW line
     // allocate and store str content in .raw
@@ -21,28 +38,67 @@ int append_line(text *txt, char *str, int len){
     txt->lines[line_i].raw[len] = 0; // end-of-line
 
     // RENDERED line from RAW
+    txt->lines[line_i].rendered_len = 0;
+    txt->lines[line_i].rendered = NULL;
     int err;
     if ((err = update_rendered(&(txt->lines[line_i]))) != 0){
         return err;
     }
 
-    //
     txt->lines_num++;
     return 0;
 }
 
-int insert_char(line* ln, int i, char ch){
-    if (i < 0 || i > ln->raw_len){
-        i = ln->raw_len;
+int insert_char(line* ln, unsigned long j, char ch){
+    if (j > ln->raw_len){ // j < 0 ||
+        j = ln->raw_len;
     }
     if ((ln->raw = (char*)realloc(ln->raw, sizeof(char)*(ln->raw_len+2))) == NULL){
         return -1;
     }
-    memmove(&(ln->raw[i+1]), &(ln->raw[i]), ln->raw_len-i+1); // handles overlapping memory regions
+    memmove(&(ln->raw[j+1]), &(ln->raw[j]), ln->raw_len-j+1); // handles overlapping memory regions
     ln->raw_len++;
-    ln->raw[i] = ch;
+    ln->raw[j] = ch;
 
     update_rendered(ln);
+    return 0;
+}
+
+void delete_char(line* ln, unsigned long j){
+    if (j >= ln->raw_len){ // j < 0 || 
+        return;
+    }
+    memmove(&(ln->raw[j]), &(ln->raw[j+1]), ln->raw_len-j);
+    ln->raw_len--;
+
+    update_rendered(ln);
+    return;
+}
+
+int merge_lines(text *txt, unsigned long at, unsigned long to){
+    if (at >= txt->lines_num || to >= txt->lines_num){ //at < 0 || to < 0 ||
+        return -1;
+    }
+
+    line *ln_to = &(txt->lines[to]);
+    line *ln_at = &(txt->lines[at]);
+    // Concatenate content of ln_at to line ln_to
+    if ((ln_to->raw = (char*)realloc(ln_to->raw, sizeof(char)*(ln_to->raw_len + ln_at->raw_len + 1))) == NULL){
+        return -1;
+    }
+    memcpy(&(ln_to->raw[ln_to->raw_len]), ln_at->raw, ln_at->raw_len);
+    ln_to->raw_len += ln_at->raw_len;
+    ln_to->raw[ln_to->raw_len] = 0;
+
+    update_rendered(ln_to);
+
+    // delete ln_at line from text
+    free_line(ln_at);
+    if (at+1 < txt->lines_num){
+        memmove(ln_at, &(txt->lines[at+1]), sizeof(line)*(txt->lines_num - at - 1));
+    }
+    
+    txt->lines_num--;
     return 0;
 }
 
@@ -81,7 +137,7 @@ int update_rendered(line* ln){
     return 0;
 }
 
-char* text_to_data(text* txt, int text_size){
+char* text_to_data(text* txt, size_t text_size){
 	char *data;
 
 	if ((data = (char *)malloc(text_size)) == NULL){
@@ -89,7 +145,7 @@ char* text_to_data(text* txt, int text_size){
 	}
 
 	char *p = data;
-	for (int line_i = 0; line_i < txt->lines_num; line_i++){
+	for (unsigned long line_i = 0; line_i < txt->lines_num; line_i++){
 		int curr_line_len = txt->lines[line_i].raw_len;
 		memcpy(p, txt->lines[line_i].raw, sizeof(char)*curr_line_len);
 		p += curr_line_len;
@@ -99,9 +155,9 @@ char* text_to_data(text* txt, int text_size){
 	return data;
 }
 
-int compute_text_size(text* txt){
-	int text_size = 0;
-	for (int i = 0; i < txt->lines_num; i++){
+size_t compute_text_size(text* txt){
+	size_t text_size = 0;
+	for (unsigned long i = 0; i < txt->lines_num; i++){
 		text_size += txt->lines[i].raw_len + 1; // including newline
 	}
 	return text_size*sizeof(char);
@@ -122,22 +178,28 @@ unsigned long compute_text_crc32(text *txt, size_t size, int* err){
 }
 
 void free_text(text *txt){
-    for (int i = 0; i < txt->lines_num; i++){
-        free(txt->lines[i].raw);
-        free(txt->lines[i].rendered);
+    if (txt != NULL && txt->lines != NULL){
+        for (unsigned long i = 0; i < txt->lines_num; i++){
+            free_line(&(txt->lines[i]));
+        }
+        free(txt->lines);
     }
-    free(txt->lines);
+    free(txt);
 }
 
+void free_line(line *ln){
+    free(ln->raw);
+    free(ln->rendered);
+}
 
 /*** dynamic buffer structure***/
 
-int append_buffer(struct dynamic_buffer *buf, const char *str, int len){
+int append_buffer(struct dynamic_buffer *buf, const char *str, unsigned int len){
     char *new;
     if ((new = (char*)realloc(buf->bytes, sizeof(char)*(buf->len + len))) == NULL)
         return -1;
 
-    memcpy(&new[buf->len], str, len);
+    memcpy(&new[buf->len], str, sizeof(char)*len);
     buf->bytes = new;
     buf->len += len;
 
