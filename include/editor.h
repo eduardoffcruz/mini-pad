@@ -9,11 +9,12 @@
 #include "data_structures.h"
 #include "key_mapping.h"
 #include "file_manager.h"
+#include "kmp_search.h"
 
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "minipad editor -- version %s"
-#define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit"
-#define UNSAVED_QUIT_INFO "Unsaved changes: Ctrl-S = save & quit | Ctrl-Q = quit | Ctrl-C = cancel"
+#define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find"
+#define UNSAVED_QUIT_INFO "Unsaved changes: Ctrl-S = save & quit | Ctrl-Q = quit | <ESC> = cancel"
 #define INFO_PERIOD 8 // seconds
 
 #define True 1
@@ -58,7 +59,7 @@ void editor_open_file(const char *filename);
 /*
 * 
 */
-void editor_empty_file(void);
+void editor_empty_file(const char *filename);
 
 /*
 *
@@ -80,13 +81,23 @@ void editor_insert_newline(void);
 */
 void editor_save_file(void);
 
+/*
+*
+*/
+void find_callback(char *query, int key_val, unsigned long* query_len);
+
+/*
+*
+*/
+void editor_find(void);
+
 
 /*** rendering ***/
 
 /*
 * 
 */
-void editor_refresh_screen(void);
+void editor_refresh_screen(char scroll);
 
 /*
 * 
@@ -152,14 +163,28 @@ void editor_quit(void);
 /*
 *
 */
-char* editor_prompt(char* prompt);
+char* editor_input_prompt(char* prompt, size_t* input_len);
 
+/*
+*
+*/
+void editor_search_prompt(char* prompt);
+
+/*
+*
+*/
+void editor_search_navigation(unsigned long** occs, unsigned long query_len, int key_val);
 
 /*** auxiliar ***/
 /*
 * 
 */
-unsigned long compute_render_x(line *ln, unsigned long cx);
+unsigned long rx_to_cx(line *ln, unsigned long rx);
+
+/*
+* 
+*/
+unsigned long cx_to_rx(line *ln, unsigned long cx);
 
 /*
 *
