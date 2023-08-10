@@ -3,8 +3,9 @@
 
 #include <unistd.h>
 
-
 /*** keypress mapping***/
+
+#define CTRL_KEY(k) ((k) & 0x1f)
 
 enum editor_key {
     ENTER = '\r',
@@ -18,7 +19,9 @@ enum editor_key {
     PAGE_DOWN,
     HOME_KEY,
     END_KEY,
-    DEL_KEY
+    DEL_KEY,
+    NEXT, // CTRL+ARROW_RIGHT
+    PREV //CTRL+ARROW_LEFT
 };
 
 int map_keypress(char byte_in);

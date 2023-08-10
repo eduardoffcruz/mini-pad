@@ -27,8 +27,8 @@ void compute_LPS_array(char *pattern, size_t pattern_len, int *lps) {
 */
 char* KMP_search(int *lps, char *text, char *pattern, unsigned long text_len, unsigned long pattern_len) {
 
-    int i = 0; // Index for text[]
-    int j = 0; // Index for pattern[]
+    unsigned long i = 0; // Index for text[]
+    unsigned long j = 0; // Index for pattern[]
 
     while (i < text_len) {
         if (pattern[j] == text[i]) {
@@ -51,7 +51,7 @@ char* KMP_search(int *lps, char *text, char *pattern, unsigned long text_len, un
     return NULL;
 }
 
-void free_occurrences(unsigned long** occs, unsigned long lines_num){
+void free_occurrences(long** occs, unsigned long lines_num){
     if (occs != NULL){
         for(unsigned long line_i = 0; line_i < lines_num; line_i++){
             free(occs[line_i]);
@@ -60,7 +60,7 @@ void free_occurrences(unsigned long** occs, unsigned long lines_num){
     }
 }
 
-unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len){
+long** get_occurrences(text* txt, char *query, unsigned long query_len){
     // Create lps[] that will hold the longest prefix suffix values for pattern (for KMP_search)
     int *lps = (int*)malloc(sizeof(int) * query_len);
     if (lps == NULL) {
@@ -69,20 +69,22 @@ unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len)
     compute_LPS_array(query, query_len, lps);
 
     // record all occurences indexes per line in matrix
-    unsigned long** occurrences = (unsigned long**)malloc(sizeof(unsigned long*)*txt->lines_num);
+    long** occurrences = (long**)malloc(sizeof(long*)*txt->lines_num);
     if (occurrences == NULL){
         return NULL;
     }
+    
+    char found_any = 0; // flag
 
     for (unsigned long line_i = 0; line_i < txt->lines_num; line_i++){
         // Find all occurences in line_i
         line *ln = &(txt->lines[line_i]);
         unsigned int max_occ = ln->rendered_len/query_len;
-        occurrences[line_i] = (unsigned long*)malloc(sizeof(unsigned long)*(max_occ+1)); //+1 to hold last written index of occurences[line_i]. 
+        occurrences[line_i] = (long*)malloc(sizeof(long)*(max_occ+1)); //+1 to hold last written index of occurences[line_i]. 
         if(occurrences[line_i] == NULL){
             return NULL;
         }
-        unsigned int occ_i = 0; // index of where occ will be written in occurrences[line_i].
+        long occ_i = 0; // index of where occ will be written in occurrences[line_i].
         char *match;
         unsigned long j = 0;
         while(j < ln->rendered_len && (match = KMP_search(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
@@ -90,10 +92,16 @@ unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len)
             j = (match - ln->rendered);
             occurrences[line_i][occ_i++] = j;
             j += query_len;
+            found_any = 1;
         }
         occurrences[line_i][max_occ] = occ_i-1;
     }
     free(lps);
+
+    if (!found_any){
+        free_occurrences(occurrences, txt->lines_num);
+        return NULL;
+    }
 
     return occurrences;
 

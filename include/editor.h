@@ -19,7 +19,6 @@
 
 #define True 1
 #define False 0
-#define CTRL_KEY(k) ((k) & 0x1f)
 
 
 struct editor_state{
@@ -173,7 +172,7 @@ void editor_search_prompt(char* prompt);
 /*
 *
 */
-void editor_search_navigation(unsigned long** occs, unsigned long query_len, int key_val);
+void editor_search_navigation(long** occs, unsigned long query_len, int key_val);
 
 /*** auxiliar ***/
 /*

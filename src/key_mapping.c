@@ -27,13 +27,20 @@ int map_keypress(char byte_in){
                     }
                 }
             } else{   
-                switch (seq[1]){
-                    case 'A': return ARROW_UP; // \x1b[A
-                    case 'B': return ARROW_DOWN; // \x1b[B
-                    case 'C': return ARROW_RIGHT; // \x1b[C
-                    case 'D': return ARROW_LEFT; // \x1b[D
-                    case 'H': return HOME_KEY; // \x1b[H
-                    case 'F': return END_KEY; // \x1b[F
+                if (seq[2] == ']'){
+                    switch (seq[1]){
+                        case 'C': return NEXT; // \x1b[C]
+                        case 'D': return PREV; // \x1b[D]
+                    }
+                }else{
+                    switch (seq[1]){
+                        case 'A': return ARROW_UP; // \x1b[A
+                        case 'B': return ARROW_DOWN; // \x1b[B
+                        case 'C': return ARROW_RIGHT; // \x1b[C
+                        case 'D': return ARROW_LEFT; // \x1b[D
+                        case 'H': return HOME_KEY; // \x1b[H
+                        case 'F': return END_KEY; // \x1b[F
+                    }
                 }
             }
 

@@ -13,9 +13,9 @@ char* KMP_search(int *lps, char *text, char *pattern, unsigned long text_len, un
 /*
 *
 */
-unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len);
+long** get_occurrences(text* txt, char *query, unsigned long query_len);
 
 /*
 *
 */
-void free_occurrences(unsigned long** occs, unsigned long lines_num);
+void free_occurrences(long** occs, unsigned long lines_num);

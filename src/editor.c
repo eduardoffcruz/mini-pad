@@ -117,7 +117,7 @@ void editor_insert_newline(void){
 void editor_save_file(void){
     int err;
     // Request filename if NULL
-    if (editor.filename == NULL && (editor.filename = editor_prompt("Save as: %s [<ESC> = cancel]", 0, NULL)) == NULL){
+    if (editor.filename == NULL && (editor.filename = editor_input_prompt("Save as: %s [<ESC> = cancel]", 0)) == NULL){
         editor_set_info("Save aborted.");
         return;
     }
@@ -152,11 +152,7 @@ void editor_save_file(void){
 
 
 void editor_find(void){
-    size_t query_len;
-    char *query = editor_prompt("Search: %s [<ESC> = cancel]", &query_len, find_callback);
-    if (query == NULL) return;
-
-    free(query);    
+    editor_search_prompt("Search: %s [<ESC> = cancel]");
 }
 
 
@@ -354,9 +350,8 @@ void editor_process_keypress(void){
             if (insist_quit){
                 // cancel
                 editor_set_info(DEFAULT_INFO);
-            } else{
-                ; // TODO: copy selected text...
             }
+
             break;
 
         case CTRL_KEY('l'): // refresh terminal cmd
@@ -487,35 +482,93 @@ void editor_quit(void){
     exit(0);
 }
 
-void editor_search_navigation(unsigned long** occs, unsigned long query_len, int key_val){
+void editor_search_navigation(long** occs, unsigned long query_len, int key_val){
     if (occs == NULL){
-        return;
+        return; // no occurrences
     }
 
-    // start by highlighting all matches inside current window
-    unsigned long line_i;
-    unsigned int max_occ,last_occ_i;
+    // TODO: finish by highlighting all matches inside current window?
+    line *ln;
+    long line_i;
+    long max_occ,last_occ_i;
+    long res;
 
-    unsigned long curr_cy = editor.cursor_y, curr_rx = editor.render_x;
-
+    long curr_cy = editor.cursor_y, curr_rx = editor.render_x;
+    
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
     switch (key_val){
-        case ARROW_LEFT:
-            // TODO: place cursor on match before cursor coordinates
+        case PREV:
+            // place cursor on match before cursor coordinates
+            if(--curr_rx < 0){
+                // reached beggining of curr line: try to go to prev line
+                if (--curr_cy < 0){
+                    curr_cy = editor.txt->lines_num-1;
+                }
+                curr_rx = editor.txt->lines[curr_cy].rendered_len-1;
+            }
+            ln = &(editor.txt->lines[curr_cy]);
+            max_occ = ln->rendered_len/query_len;
+            last_occ_i = occs[curr_cy][max_occ];
+            res = -1;
+            if (last_occ_i != -1){
+                unsigned int l = 0, r = last_occ_i;
+                while (l <= r) {
+                    unsigned int mid = l + (r - l) / 2;
+                    if (occs[curr_cy][mid] <= curr_rx) {
+                        res = mid;
+                        l = mid + 1;  // Search in the right half
+                    } else { 
+                        r = mid - 1;  // Search in the left half
+                    }
+                }
+                if (res != -1){
+                    editor.cursor_y = curr_cy;
+                    editor.render_x = occs[curr_cy][res];
+                    editor.cursor_x = rx_to_cx(ln, editor.render_x);
+                    return;
+                }
+            }
+            // not found in the current cursor line, check prev lines
+            line_i = (curr_cy-1)%editor.txt->lines_num;
+            while(line_i != curr_cy){
+                ln = &(editor.txt->lines[line_i]);
+                max_occ = ln->rendered_len/query_len;
+                last_occ_i = occs[line_i][max_occ];
+                if (last_occ_i != -1){
+                    editor.cursor_y = line_i;
+                    editor.render_x = occs[line_i][last_occ_i];
+                    editor.cursor_x = rx_to_cx(ln, editor.render_x);
+                    return;
+                }
+                line_i = (line_i-1)%editor.txt->lines_num;
+            }
+            ln = &(editor.txt->lines[line_i]);
+            max_occ = ln->rendered_len/query_len;
+            last_occ_i = occs[line_i][max_occ];
+            if (last_occ_i != -1){
+                editor.cursor_y = line_i;
+                editor.render_x = occs[line_i][last_occ_i];
+                editor.cursor_x = rx_to_cx(ln, editor.render_x);
+                return;
+            }
             break;
-        case ARROW_RIGHT:
+
+        case NEXT:
             // place cursor on match after cursor coordinates
-            if(++curr_rx >= editor.txt->lines[curr_cy].rendered_len){
+            if((unsigned long)(++curr_rx) >= editor.txt->lines[curr_cy].rendered_len){
                 curr_rx = 0;
-                if (++curr_cy >= editor.txt->lines_num){
+                if ((unsigned long)(++curr_cy) >= editor.txt->lines_num){
                     curr_cy = 0;
                 }
             }
+
         default:
             // place cursor on match closer to cursor coordinates
-            line *ln = &(editor.txt->lines[curr_cy]);
+            ln = &(editor.txt->lines[curr_cy]);
             max_occ = ln->rendered_len/query_len;
             last_occ_i = occs[curr_cy][max_occ];
-            long res = -1;
+            res = -1;
             if (last_occ_i != -1){
                 unsigned int l = 0, r = last_occ_i;
                 while (l <= r) {
@@ -529,14 +582,15 @@ void editor_search_navigation(unsigned long** occs, unsigned long query_len, int
                 }
                 if (res != -1){
                     editor.cursor_y = curr_cy;
-                    editor.render_x = occs[line_i][res];
+                    editor.render_x = occs[curr_cy][res];
                     editor.cursor_x = rx_to_cx(ln, editor.render_x);
                     return;
                 }
             }
 
             // not found in the current cursor line, check next lines
-            for (unsigned long line_i = curr_cy+1; line_i < editor.txt->lines_num; line_i++){
+            line_i = (curr_cy+1)%editor.txt->lines_num;
+            while(line_i != curr_cy){
                 ln = &(editor.txt->lines[line_i]);
                 max_occ = ln->rendered_len/query_len;
                 last_occ_i = occs[line_i][max_occ];
@@ -546,34 +600,42 @@ void editor_search_navigation(unsigned long** occs, unsigned long query_len, int
                     editor.cursor_x = rx_to_cx(ln, editor.render_x);
                     return;
                 }
+                line_i = (line_i+1)%editor.txt->lines_num;
             }
-            
+            ln = &(editor.txt->lines[line_i]);
+            max_occ = ln->rendered_len/query_len;
+            last_occ_i = occs[line_i][max_occ];
+            if (last_occ_i != -1){
+                editor.cursor_y = line_i;
+                editor.render_x = occs[line_i][0];
+                editor.cursor_x = rx_to_cx(ln, editor.render_x);
+                return;
+            }
             break;
     }
-        
+#pragma GCC diagnostic pop
+
+    return; // no change to cursor positioning    
 }
 
 void editor_search_prompt(char* prompt){
-    unsigned long** occs = NULL; // only for find functionality
+    // ENTER SEARCH MODE
+    long** occs = NULL; // only for find functionality
 
     size_t buf_size = 128;
     char* buf = (char*)malloc(sizeof(char)*buf_size);
     if (buf == NULL){
-        return NULL;
+        return;
     }
     
+    // record cursor coordinates before search
     unsigned long prev_cursor_y = editor.cursor_y, prev_render_x = editor.render_x;
-    /*editor.cursor_y = editor.screen_height+2;
-    editor.render_x = 0;
-    while (editor.render_x < editor.screen_width && prompt[editor.render_x] != '\0' && !(prompt[editor.render_x] == '%' && prompt[editor.render_x + 1] == 's')) {
-        editor.render_x++;
-    }*/
 
     unsigned long input_len = 0;
     buf[0] = 0;
     while(input_len*sizeof(char) < buf_size){
         editor_set_info(prompt, buf);
-        editor_refresh_screen(False);
+        editor_refresh_screen(True);
 
         int key_val = editor_read_keypress();
         if ((key_val == DEL_KEY || key_val == CTRL_KEY('h') || key_val == BACKSPACE) && input_len != 0){
@@ -581,23 +643,26 @@ void editor_search_prompt(char* prompt){
             //editor.render_x--;
             occs = get_occurrences(editor.txt, buf, input_len);
             editor_search_navigation(occs, input_len, key_val);
-                // present all occs, highlighting nearest occurence
-                ;
-                //fazer função para isto TODO:
-            
+            // present all occs, highlighting nearest occurence
+            // TODO: highlight visible text
 
         } else if (key_val == ESC){
-            // stop search
+            // cancel search and get back to previous cursor position
+            // TODO: stop highlighing if toggled on
+            editor.render_x = prev_render_x, editor.cursor_y = prev_cursor_y;
             editor_set_info("");
-            //editor.render_x = prev_render_x, editor.cursor_y = prev_cursor_y;
             free_occurrences(occs, editor.txt->lines_num);
             free(buf);
-            return NULL;
+            return;
 
         } else if (key_val == ENTER){
-            // TODO:
             // stop search and continue editing at currently highlighed (selected) position and get back to normal editing
-
+            // TODO: stop highlighing if toggled on
+            editor_set_info("");
+            free_occurrences(occs, editor.txt->lines_num);
+            free(buf);
+            return;
+            
         } else if (!iscntrl(key_val) && key_val < 128){
             // control chars are non-printable characters
             if(input_len == buf_size - 1 && buf_size < 4096*100){
@@ -606,7 +671,7 @@ void editor_search_prompt(char* prompt){
                     //editor.render_x = prev_render_x, editor.cursor_y = prev_cursor_y;
                     free_occurrences(occs, editor.txt->lines_num);
                     free(buf);
-                    return NULL;
+                    return;
                 }
             }
             buf[input_len++] = key_val;
@@ -616,16 +681,26 @@ void editor_search_prompt(char* prompt){
             occs = get_occurrences(editor.txt, buf, input_len);
             editor_search_navigation(occs, input_len, key_val);
             // present all occs, highlighting nearest occurence
-            
-        } else if (key_val == ARROW_RIGHT || key_val == ARROW_LEFT){
-            // present all occs, highlighting next or prev occurence
+            // TODO: highlight visible text
+
+        } else if (key_val == NEXT || key_val == PREV){
+            // present all occs highlighed, navigating to next or prev occurence
             editor_search_navigation(occs, input_len, key_val);
+            // TODO: highlight visible text
+
+        } else if (key_val == ARROW_DOWN || key_val == ARROW_UP || key_val == ARROW_RIGHT || key_val == ARROW_LEFT){
+            editor_move_cursor(key_val);
+
+        } else if (key_val == PAGE_UP || key_val == PAGE_DOWN){
+            editor_page_scroll(key_val);
+
         }
     }
-    //editor.render_x = prev_render_x, editor.cursor_y = prev_cursor_y;
 
+    editor.render_x = prev_render_x, editor.cursor_y = prev_cursor_y;
     free_occurrences(occs, editor.txt->lines_num);
     free(buf);
+    return;
 }
 
 char* editor_input_prompt(char* prompt, size_t* input_len){
