@@ -23,9 +23,9 @@ void compute_LPS_array(char *pattern, size_t pattern_len, int *lps) {
 }
 
 /*
-* Returns first occurence of pattern in text 
+* Returns first occurence of pattern in text (case sensitive)
 */
-char* KMP_search(int *lps, char *text, char *pattern, unsigned long text_len, unsigned long pattern_len) {
+char* KMP_search_cs(int *lps, char *text, char *pattern, unsigned long text_len, unsigned long pattern_len) {
 
     unsigned long i = 0; // Index for text[]
     unsigned long j = 0; // Index for pattern[]
@@ -51,7 +51,36 @@ char* KMP_search(int *lps, char *text, char *pattern, unsigned long text_len, un
     return NULL;
 }
 
-void free_occurrences(long** occs, unsigned long lines_num){
+/*
+* Returns first occurence of pattern in text (NON case sensitive)
+*/
+char* KMP_search_non_cs(int *lps, char *text, char *pattern, unsigned long text_len, unsigned long pattern_len) {
+
+    unsigned long i = 0; // Index for text[]
+    unsigned long j = 0; // Index for pattern[]
+
+    while (i < text_len) {
+        if (tolower(pattern[j]) == tolower(text[i])) {
+            j++;
+            i++;
+        }
+
+        if (j == pattern_len) {
+            return &text[i-j];
+            //printf("Pattern found at index %d\n", i - j);
+            //j = lps[j - 1];
+        } else if (i < text_len && tolower(pattern[j]) != tolower(text[i])) {
+            if (j != 0) {
+                j = lps[j - 1];
+            } else {
+                i++;
+            }
+        }
+    }
+    return NULL;
+}
+
+void free_occurrences(unsigned long** occs, unsigned long lines_num){
     if (occs != NULL){
         for(unsigned long line_i = 0; line_i < lines_num; line_i++){
             free(occs[line_i]);
@@ -60,7 +89,7 @@ void free_occurrences(long** occs, unsigned long lines_num){
     }
 }
 
-long** get_occurrences(text* txt, char *query, unsigned long query_len){
+unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len, char case_sensitive){
     // Create lps[] that will hold the longest prefix suffix values for pattern (for KMP_search)
     int *lps = (int*)malloc(sizeof(int) * query_len);
     if (lps == NULL) {
@@ -69,7 +98,7 @@ long** get_occurrences(text* txt, char *query, unsigned long query_len){
     compute_LPS_array(query, query_len, lps);
 
     // record all occurences indexes per line in matrix
-    long** occurrences = (long**)malloc(sizeof(long*)*txt->lines_num);
+    unsigned long** occurrences = (unsigned long**)malloc(sizeof(unsigned long*)*txt->lines_num);
     if (occurrences == NULL){
         return NULL;
     }
@@ -79,22 +108,28 @@ long** get_occurrences(text* txt, char *query, unsigned long query_len){
     for (unsigned long line_i = 0; line_i < txt->lines_num; line_i++){
         // Find all occurences in line_i
         line *ln = &(txt->lines[line_i]);
-        unsigned int max_occ = ln->rendered_len/query_len;
-        occurrences[line_i] = (long*)malloc(sizeof(long)*(max_occ+1)); //+1 to hold last written index of occurences[line_i]. 
+        unsigned long max_occ = ln->rendered_len/query_len;
+        occurrences[line_i] = (unsigned long*)malloc(sizeof(unsigned long)*(max_occ+1)); //+1 to hold last written index of occurences[line_i]. 
         if(occurrences[line_i] == NULL){
             return NULL;
         }
-        long occ_i = 0; // index of where occ will be written in occurrences[line_i].
+        unsigned long occ_i = 0; // index of where occ will be written in occurrences[line_i].
         char *match;
         unsigned long j = 0;
-        while(j < ln->rendered_len && (match = KMP_search(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
+        //while(j < ln->rendered_len && (match = KMP_search_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
+        while(j < ln->rendered_len && (match = case_sensitive ? KMP_search_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len) : KMP_search_non_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
             // store occurrence
             j = (match - ln->rendered);
             occurrences[line_i][occ_i++] = j;
             j += query_len;
+        }
+
+        if (occ_i == 0){
+            occurrences[line_i][max_occ] = ULONG_MAX;
+        } else{
+            occurrences[line_i][max_occ] = occ_i-1;
             found_any = 1;
         }
-        occurrences[line_i][max_occ] = occ_i-1;
     }
     free(lps);
 

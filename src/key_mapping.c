@@ -4,15 +4,16 @@
 /*** keypress mapping***/
 
 int map_keypress(char byte_in){
+    // handle special escape characters
     if(byte_in == ESC){ // <ESC> == \x1b
-        char seq[3];
+        char seq[5];
 
         if(read(STDIN_FILENO, &seq[0], 1) != 1) return ESC; // no mapping: <ESC>
         if(read(STDIN_FILENO, &seq[1], 1) != 1) return ESC; // no mapping: <ESC>
         
         if(seq[0] == '['){
             if(seq[1] >= '0' && seq[1] <= '9'){
-                if(read(STDIN_FILENO, &seq[2], 1) != 1) return ESC;
+                if(read(STDIN_FILENO, &seq[2], 1) != 1) return ESC; // no mapping: <ESC>
                 if (seq[2] == '~'){
                     switch (seq[1]) {
                         case '1': // \x1b[1~
@@ -25,23 +26,27 @@ int map_keypress(char byte_in){
                         case '6': return PAGE_DOWN; // \x1b[6~
                         case '3': return DEL_KEY; // \x1b[3~
                     }
+                } else if (seq[2] == ';') {
+                    if(read(STDIN_FILENO, &seq[3], 1) != 1) return ESC; // no mapping: <ESC>
+                    if(read(STDIN_FILENO, &seq[4], 1) != 1) return ESC; // no mapping: <ESC>
+                    if (seq[1] == '1' && seq[3] == '5'){
+                        switch (seq[4]) {
+                            case 'C': return NEXT; // \x1b[1;5C
+                            case 'D': return PREV; // \x1b[1;5D
+                            case 'B': return CS_TOGGLE; // \x1b[1;5D
+                        }
+                    }
                 }
             } else{   
-                if (seq[2] == ']'){
-                    switch (seq[1]){
-                        case 'C': return NEXT; // \x1b[C]
-                        case 'D': return PREV; // \x1b[D]
-                    }
-                }else{
-                    switch (seq[1]){
-                        case 'A': return ARROW_UP; // \x1b[A
-                        case 'B': return ARROW_DOWN; // \x1b[B
-                        case 'C': return ARROW_RIGHT; // \x1b[C
-                        case 'D': return ARROW_LEFT; // \x1b[D
-                        case 'H': return HOME_KEY; // \x1b[H
-                        case 'F': return END_KEY; // \x1b[F
-                    }
+                switch (seq[1]){
+                    case 'A': return ARROW_UP; // \x1b[A
+                    case 'B': return ARROW_DOWN; // \x1b[B
+                    case 'C': return ARROW_RIGHT; // \x1b[C
+                    case 'D': return ARROW_LEFT; // \x1b[D
+                    case 'H': return HOME_KEY; // \x1b[H
+                    case 'F': return END_KEY; // \x1b[F
                 }
+                
             }
 
         } else if (seq[0] == 'O') {
@@ -50,6 +55,7 @@ int map_keypress(char byte_in){
                 case 'F': return END_KEY; // \x1bOF
             }
         }
+
         return ESC; // no mapping: <ESC>
     }
 

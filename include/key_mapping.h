@@ -21,7 +21,8 @@ enum editor_key {
     END_KEY,
     DEL_KEY,
     NEXT, // CTRL+ARROW_RIGHT
-    PREV //CTRL+ARROW_LEFT
+    PREV, //CTRL+ARROW_LEFT
+    CS_TOGGLE // CTRL+ARROW_DOWN to toggle case sensitive (search feature)
 };
 
 int map_keypress(char byte_in);

@@ -11,15 +11,18 @@
 #include "file_manager.h"
 #include "kmp_search.h"
 
+#define True 1
+#define False 0
+
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "minipad editor -- version %s"
 #define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find"
 #define UNSAVED_QUIT_INFO "Unsaved changes: Ctrl-S = save & quit | Ctrl-Q = quit | <ESC> = cancel"
+#define SEARCH_PROMPT "Search: %s [Ctrl→ = next | Ctrl← = prev | <ENTER> = stop | <ESC> = cancel]"
+#define INPUT_PROMPT "Save as: %s [<ENTER> = submit | <ESC> = cancel]"
 #define INFO_PERIOD 8 // seconds
-
-#define True 1
-#define False 0
-
+#define PAGE_SCROLL 3/4 // of screen_height
+#define DEFAULT_CS_SEARCH False
 
 struct editor_state{
     // cursor
@@ -172,7 +175,7 @@ void editor_search_prompt(char* prompt);
 /*
 *
 */
-void editor_search_navigation(long** occs, unsigned long query_len, int key_val);
+void editor_search_navigation(unsigned long** occs, unsigned long query_len, int key_val);
 
 /*** auxiliar ***/
 /*

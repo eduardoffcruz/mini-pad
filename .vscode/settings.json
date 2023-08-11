@@ -4,6 +4,7 @@
         "data_structures.h": "c",
         "stdint.h": "c",
         "key_mapping.h": "c",
-        "file_manager.h": "c"
+        "file_manager.h": "c",
+        "kmp_search.h": "c"
     }
 }
