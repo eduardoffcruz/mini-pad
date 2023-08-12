@@ -11,7 +11,7 @@ SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
 OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_FILES))
 
 # Set executable filename
-TARGET = text_editor
+TARGET = minipad
 
 # Default rule that is executed when 'make' is ran without arguments
 all: $(TARGET)
