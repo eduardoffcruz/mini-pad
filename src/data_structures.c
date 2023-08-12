@@ -121,10 +121,10 @@ int update_rendered(line* ln){
     // render tabs according to TAB_SIZE
     int ind = 0;
     for (j = 0; j < raw_len; j++){
-        char raw_byte;
-        if ((raw_byte = ln->raw[j]) == '\t'){
+        char raw_byte = ln->raw[j];
+        if (raw_byte == '\t'){
             ln->rendered[ind++] = ' '; // <space>
-            while (ind % TAB_SIZE){
+            while (ind % TAB_SIZE != 0){
                 ln->rendered[ind++] = ' '; // <space>
             }
         } else{

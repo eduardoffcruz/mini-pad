@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <math.h>
 #include "terminal.h"
 #include "data_structures.h"
 #include "key_mapping.h"
@@ -18,10 +19,11 @@
 #define WELCOME_MSG "minipad editor -- version %s"
 #define DEFAULT_INFO "HELP: ^S = save | ^Q = quit | ^F = find"
 #define UNSAVED_QUIT_INFO "Unsaved changes: ^S = save & quit | ^Q = quit | <ESC> = cancel"
-#define SEARCH_PROMPT "Search: %s \n^→ = next | ^← = prev | <ENTER> = stop | <ESC> = cancel | ^↓ = CS %s"
+#define SEARCH_PROMPT "Search: %s \n^→ = next | ^← = prev | <ENTER> = stop | <ESC> = cancel | ^↓ = %s case-sensitive"
 #define INPUT_PROMPT "Save as: %s \n<ENTER> = submit | <ESC> = cancel"
 #define INFO_PERIOD 8 // seconds
-#define DEFAULT_CS_SEARCH False
+#define DEFAULT_CS_SEARCH False // case-sensitive search
+#define SHOW_LINE_I True
 
 struct editor_state{
     // cursor
@@ -35,6 +37,8 @@ struct editor_state{
     unsigned short screen_height, screen_width;
     // scroll
     unsigned long row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
+
+    int max_digits;
 
     char search_cs;
     
@@ -166,6 +170,11 @@ void editor_line_navigation(void);
 *
 */
 void editor_scroll(int key_val);
+
+/*
+*
+*/
+void editor_handle_click(int key_val);
 
 /*
 *

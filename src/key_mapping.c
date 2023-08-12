@@ -56,13 +56,13 @@ int map_keypress(char byte_in, unsigned int* mouse_x, unsigned int* mouse_y){
                         switch (event_type){
                             case 0x60: return SCROLL_UP; // \xb1[M
                             case 0x61: return SCROLL_DOWN;
-                            case 0x20: return RIGHT_CLICK;
-                            case 0x21: return MIDDLE_CLICK;
-                            case 0x22: return LEFT_CLICK;
-                            case 0x23: return CLICK_RELEASE;
+                            case 0x20: return RIGHT_CLICK; //' '
+                            case 0x21: return MIDDLE_CLICK; //'!'
+                            case 0x22: return LEFT_CLICK; //'"'
+                            case 0x23: return CLICK_RELEASE; //'#'
                             default:
                                 // other mouse events
-                                break;
+                                return ESC;
                         }
                         
                     }

@@ -17,6 +17,8 @@ void editor_init(void){
 
     editor.search_cs = DEFAULT_CS_SEARCH;
 
+    editor.max_digits = 1;
+
     editor.filename = NULL;
     editor.txt = NULL;
 
@@ -40,6 +42,7 @@ void editor_open_file(const char *filename){
 
     if (read_file_to_text(filename, editor.txt) != 0) die("open_file");
 
+    editor.max_digits = (int)log10(editor.txt->lines_num)+1;
     // Record filename of currently opened file, in editor's sata
     free(editor.filename);
     editor.filename = strdup(filename);
@@ -54,6 +57,7 @@ void editor_empty_file(const char *filename){
     if (append_line(editor.txt, editor.txt->lines_num, "", 0) != 0){
         die("append_file");
     }
+    editor.max_digits = (int)log10(editor.txt->lines_num)+1;
 
     if (filename != NULL){
         free(editor.filename);
@@ -67,6 +71,7 @@ void editor_insert_char(char ch){
         if (append_line(editor.txt, editor.txt->lines_num, "", 0) != 0){
             die("append_file");
         }
+        editor.max_digits = (int)log10(editor.txt->lines_num)+1;
     }
     // insert char at curr cursor location
     if (insert_char(&editor.txt->lines[editor.cursor_y], editor.cursor_x, ch) != 0) die("insert_char");
@@ -107,12 +112,14 @@ void editor_insert_newline(void){
         if (append_line(editor.txt, editor.cursor_y, "", 0) != 0){
             die("append_line");
         }
+        editor.max_digits = (int)log10(editor.txt->lines_num)+1;
         
     } else{
         line *ln = &editor.txt->lines[editor.cursor_y];
         if (append_line(editor.txt, editor.cursor_y + 1, &ln->raw[editor.cursor_x], ln->raw_len < editor.cursor_x ? 0 : ln->raw_len - editor.cursor_x) != 0){
             die("append_line");
         }
+        editor.max_digits = (int)log10(editor.txt->lines_num)+1;
         ln = &(editor.txt->lines[editor.cursor_y]);
         ln->raw_len = editor.cursor_x;
         ln->raw[ln->raw_len] = 0;
@@ -120,6 +127,7 @@ void editor_insert_newline(void){
     }
     editor.cursor_y++;
     editor.cursor_x = 0;
+    editor.col_offset = 0;
     editor.prev_cx = editor.cursor_x;
     editor.prev_cy = editor.cursor_y;
 
@@ -229,10 +237,27 @@ void editor_render_text(struct dynamic_buffer *buf) {
             
         } else{
             unsigned long line_len = editor.txt->lines[file_row].rendered_len < editor.col_offset ? 0 : editor.txt->lines[file_row].rendered_len - editor.col_offset;
-            if (line_len > editor.screen_width) {
-                line_len = editor.screen_width;
+            if (SHOW_LINE_I){
+                if (line_len + editor.max_digits > editor.screen_width) {
+                    line_len = editor.screen_width - editor.max_digits;
+                }
+                char line_num[32];
+                if (editor.cursor_y != file_row) append_buffer(buf, "\x1b[2m",4); //\x1b[22m
+                int curr_digits = snprintf(line_num, sizeof(line_num),"%lu" ,file_row+1);
+                int tmp_count = curr_digits;
+                while(tmp_count++ < editor.max_digits){
+                    append_buffer(buf, " ", 1);
+                }
+                append_buffer(buf, line_num, curr_digits);
+                if (editor.cursor_y != file_row) append_buffer(buf, "\x1b[22m",5);
+                append_buffer(buf, &(editor.txt->lines[file_row].rendered[editor.col_offset]), line_len);
+            } else{ // place text (no line_i)
+                if (line_len > editor.screen_width) {
+                    line_len = editor.screen_width;
+                }
+                append_buffer(buf, &(editor.txt->lines[file_row].rendered[editor.col_offset]), line_len);
             }
-            append_buffer(buf, &(editor.txt->lines[file_row].rendered[editor.col_offset]), line_len);
+
         }
 
         append_buffer(buf, "\x1b[K", 3);
@@ -326,7 +351,6 @@ int editor_read_keypress(void){
 
 void editor_process_keypress(void){
     static char insist_quit = False;
-
     int key_val = editor_read_keypress();
     switch (key_val) {
         case ENTER:
@@ -360,9 +384,12 @@ void editor_process_keypress(void){
             editor_move_cursor(key_val);
             break;
 
+        case LEFT_CLICK:
+        case MIDDLE_CLICK:
         case RIGHT_CLICK:
-            // position cursor in text;
-            editor_position_mouse_cursor();
+            editor_handle_click(key_val);
+            break;
+        case CLICK_RELEASE: // ignore
             break;
 
         case SCROLL_DOWN:
@@ -437,6 +464,7 @@ void editor_move_cursor(int key_val){
                 } else if(editor.cursor_x == line_len && editor.cursor_y + 1 < editor.txt->lines_num){ // check if end of curr line
                     editor.cursor_y++;
                     editor.cursor_x = 0;
+                    //editor.col_offset = 0;
                     editor.prev_cy = editor.cursor_y;
                 } else{
                     return;
@@ -449,7 +477,7 @@ void editor_move_cursor(int key_val){
             if(editor.cursor_y != 0){
                 editor.cursor_y--;
                 editor.prev_cy = editor.cursor_y;
-                break; // leave switch block
+                break; // leave switch block (to handle_cursor_x)
             } 
             return;
 
@@ -457,7 +485,7 @@ void editor_move_cursor(int key_val){
             if(editor.cursor_y + 1 < editor.txt->lines_num){
                 editor.cursor_y++;
                 editor.prev_cy = editor.cursor_y;
-                break; // leave switch block
+                break; // leave switch block (to handle_cursor_x)
             }
             return;
 
@@ -486,8 +514,10 @@ void editor_line_navigation(void){
         editor.row_offset = editor.cursor_y + 1 < editor.screen_height ? 0 : editor.cursor_y + 1 - editor.screen_height;
     
     // Horizontal scroll
-    if(editor.render_x < editor.col_offset)   
-        editor.col_offset = editor.render_x;
+    if(editor.render_x - (SHOW_LINE_I ? editor.max_digits : 0) < editor.col_offset){
+        //editor.col_offset = editor.render_x - editor.max_digits; 
+        editor.col_offset = editor.render_x > editor.screen_width/2 ? editor.render_x - editor.screen_width/2 : 0;
+    }  
     if(editor.render_x >= editor.screen_width + editor.col_offset) 
         // editor.col_offset = editor.render_x - editor.screen_width + 1;
         editor.col_offset = editor.render_x + 1 < editor.screen_width ? 0 : editor.render_x + 1 - editor.screen_width;
@@ -565,25 +595,77 @@ void editor_scroll(int key_val){
     handle_cursor_x();
 }
 
-void editor_position_mouse_cursor(){
-    editor_set_info("(%d %d),(%lu, %lu)", editor.click_x, editor.click_y, editor.row_offset, editor.col_offset );
-    
-    unsigned long req_x = editor.row_offset + editor.click_x;
-    unsigned long req_y = editor.col_offset + editor.click_y;
+void editor_handle_click(int key_val){
+    char event_type;
+    switch (key_val){
+    case LEFT_CLICK:
+        event_type = '"';
+        break;
+    case MIDDLE_CLICK:
+        event_type = '!';
+        break;
+    case RIGHT_CLICK:
+        event_type = ' ';
+        break;
+    default:
+        return;
+    }
 
-    /****/
-    /*if (req_y >= editor.txt->lines_num){
+    // wait for click_release
+    unsigned int prev_click_x = editor.click_x, prev_click_y = editor.click_y; // to keep track for press+release coordinates
+    if(editor_read_keypress() != CLICK_RELEASE){
+        if(event_type){
+            ;
+        } // TODO: remove
+        return; // must be click_release!
+    }
+
+    if(key_val == RIGHT_CLICK && prev_click_x == editor.click_x && prev_click_y == editor.click_y){
+        editor_position_mouse_cursor(); // handle it myself (cursor postioning)
+        return;
+    }
+
+    // didn't work, find workaround TODO:
+    /*
+    // - I want some click behavior to be handled by the terminal emulator
+    char seq[6];
+    disable_mouse_reporting();
+    terminal_disable_raw_mode();
+    seq[0] = ESC, seq[1] = '[', seq[2] = 'M';
+    // redirect click press to stdout
+    seq[3] = event_type; // left click
+    seq[4] = prev_click_x+33, seq[5] = prev_click_y+33;
+    write(STDOUT_FILENO, seq, 6*sizeof(char));
+    // redirect click release to stdout
+    seq[3] = '#'; // release click
+    seq[4] = editor.click_x+33, seq[5] = editor.click_y+33;
+    write(STDOUT_FILENO, seq, 6*sizeof(char));
+    terminal_enable_raw_mode();
+    enable_mouse_reporting(); // re-enable mouse reporting    
+    */
+   return;
+}
+
+void editor_position_mouse_cursor(){
+    unsigned long req_y = editor.row_offset + editor.click_y;
+    editor.click_x = (SHOW_LINE_I && editor.click_x < (unsigned)editor.max_digits ? (unsigned)editor.max_digits : editor.click_x);
+    unsigned long req_x = editor.col_offset + editor.click_x - (SHOW_LINE_I ? editor.max_digits : 0);
+    
+    if (req_y >= editor.txt->lines_num){
         req_y = editor.txt->lines_num-1;
     }
-    if (req_x >= editor.txt->lines[req_y].raw_len){
-        req_x = editor.txt->lines[req_y].raw_len;
+    if (req_x >= editor.txt->lines[req_y].rendered_len){
+        req_x = editor.txt->lines[req_y].rendered_len;
+    }
+
+    editor.cursor_y = req_y;
+    /*if (SHOW_LINE_I) {
+        req_x = (req_x <= (long unsigned)editor.max_digits) ? 0 : req_x - editor.max_digits;
     }*/
-
-    //editor.cursor_y = req_y;
- 
-    //editor.cursor_x = req_x; //rx_to_cx(&(editor.txt->lines[editor.cursor_y]),editor.render_x);
-    //editor.render_x = cx_to_rx(&(editor.txt->lines[editor.cursor_y]),editor.render_x);
-
+    editor.cursor_x = rx_to_cx(&(editor.txt->lines[editor.cursor_y]), req_x);
+    editor.prev_cy = editor.cursor_y;
+    editor.prev_cx = editor.cursor_x;
+    
     return;
 }
 
@@ -820,6 +902,9 @@ void editor_search_prompt(char* prompt){
         } else if (key_val == PAGE_UP || key_val == PAGE_DOWN || key_val == SCROLL_DOWN || key_val == SCROLL_UP){
             editor_scroll(key_val);
 
+        } else if(key_val == LEFT_CLICK || key_val == RIGHT_CLICK || key_val == MIDDLE_CLICK){
+            editor_handle_click(key_val);
+            
         } else if(key_val == CS_TOGGLE){
             editor.search_cs = !editor.search_cs;
             // update occs
@@ -901,6 +986,9 @@ unsigned long cx_to_rx(line *ln, unsigned long cx){
             rx += ((TAB_SIZE-1) - (rx % TAB_SIZE));
         }
         rx++;
+    }
+    if (SHOW_LINE_I){
+        rx+=editor.max_digits;
     }
     return rx;
 }
