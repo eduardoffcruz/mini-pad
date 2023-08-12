@@ -102,9 +102,10 @@ int merge_lines(text *txt, unsigned long at, unsigned long to){
     return 0;
 }
 
+
 int update_rendered(line* ln){
     int tabs = 0;
-    int j, raw_len = ln->raw_len;
+    unsigned long j, raw_len = ln->raw_len;
     // count tabs
     for (j = 0; j < raw_len; j++){
         if (ln->raw[j] == '\t'){
@@ -119,8 +120,7 @@ int update_rendered(line* ln){
     }
     // render tabs according to TAB_SIZE
     int ind = 0;
-    for (j = 0; j < raw_len; j++)
-    {
+    for (j = 0; j < raw_len; j++){
         char raw_byte;
         if ((raw_byte = ln->raw[j]) == '\t'){
             ln->rendered[ind++] = ' '; // <space>

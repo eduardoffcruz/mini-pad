@@ -10,6 +10,7 @@ void terminal_enable_raw_mode(){
     if (tcgetattr(STDIN_FILENO, &origin_termios) == -1) die("tcgetattr");
     // set disable_raw_mode func to be called when exit is called
     atexit(terminal_disable_raw_mode); 
+    atexit(disable_mouse_reporting); 
 
     // create and apply new terminal config to be in raw mode
     struct termios new_cfg = origin_termios;
@@ -22,6 +23,8 @@ void terminal_enable_raw_mode(){
     
     // apply changed attrs to terminal (TCAFLUSH discards any unread input)
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_cfg) == -1) die("tcsetattr");
+
+    enable_mouse_reporting();
 }
 
 void terminal_disable_raw_mode(){
@@ -69,4 +72,14 @@ void terminal_wipe_screen(){
 
 void terminal_wipe_line(){
     write(STDOUT_FILENO, "\x1b[K", 3); // clear line: <esc>[K
+}
+
+void enable_mouse_reporting(){
+    write(STDOUT_FILENO, "\x1b[?1000h",8); // enable mouse reporting mode (basic)
+    write(STDOUT_FILENO, "\x1b[?1015h",8); // enable mouse scrolling tracking
+}
+
+void disable_mouse_reporting(){
+    write(STDOUT_FILENO, "\x1b[?1000l",8); // disable mouse reporting mode (basic)
+    write(STDOUT_FILENO, "\x1b[?1015l",8); // disable mouse scrolling tracking
 }

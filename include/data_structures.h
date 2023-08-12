@@ -55,7 +55,6 @@ void delete_char(line* ln, unsigned long j);
 */
 int merge_lines(text *txt, unsigned long at, unsigned long to);
 
-
 /*
  *
  */

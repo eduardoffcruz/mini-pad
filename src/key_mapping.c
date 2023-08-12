@@ -1,9 +1,8 @@
 #include "key_mapping.h"
 
-
 /*** keypress mapping***/
 
-int map_keypress(char byte_in){
+int map_keypress(char byte_in, unsigned int* mouse_x, unsigned int* mouse_y){
     // handle special escape characters
     if(byte_in == ESC){ // <ESC> == \x1b
         char seq[5];
@@ -45,10 +44,30 @@ int map_keypress(char byte_in){
                     case 'D': return ARROW_LEFT; // \x1b[D
                     case 'H': return HOME_KEY; // \x1b[H
                     case 'F': return END_KEY; // \x1b[F
-                }
-                
+                    case 'M': // Mouse events
+                    {
+                        if(read(STDIN_FILENO, &seq[2], 1) != 1) return ESC;
+                        char event_type = seq[2];
+                        if(read(STDIN_FILENO, &seq[3], 1) != 1) return ESC;
+                        *mouse_x = (unsigned char)seq[3] - 33;
+                        if(read(STDIN_FILENO, &seq[4], 1) != 1) return ESC;
+                        *mouse_y = (unsigned char)seq[4] - 33;
+ 
+                        switch (event_type){
+                            case 0x60: return SCROLL_UP; // \xb1[M
+                            case 0x61: return SCROLL_DOWN;
+                            case 0x20: return RIGHT_CLICK;
+                            case 0x21: return MIDDLE_CLICK;
+                            case 0x22: return LEFT_CLICK;
+                            case 0x23: return CLICK_RELEASE;
+                            default:
+                                // other mouse events
+                                break;
+                        }
+                        
+                    }
+                }                
             }
-
         } else if (seq[0] == 'O') {
             switch (seq[1]) {
                 case 'H': return HOME_KEY; // \x1bOH

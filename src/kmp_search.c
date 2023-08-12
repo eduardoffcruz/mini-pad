@@ -108,7 +108,7 @@ unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len,
     for (unsigned long line_i = 0; line_i < txt->lines_num; line_i++){
         // Find all occurences in line_i
         line *ln = &(txt->lines[line_i]);
-        unsigned long max_occ = ln->rendered_len/query_len;
+        unsigned long max_occ = ln->raw_len/query_len;
         occurrences[line_i] = (unsigned long*)malloc(sizeof(unsigned long)*(max_occ+1)); //+1 to hold last written index of occurences[line_i]. 
         if(occurrences[line_i] == NULL){
             return NULL;
@@ -116,10 +116,9 @@ unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len,
         unsigned long occ_i = 0; // index of where occ will be written in occurrences[line_i].
         char *match;
         unsigned long j = 0;
-        //while(j < ln->rendered_len && (match = KMP_search_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
-        while(j < ln->rendered_len && (match = case_sensitive ? KMP_search_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len) : KMP_search_non_cs(lps, &ln->rendered[j], query, ln->rendered_len-j, query_len)) != NULL){
+        while(j < ln->raw_len && (match = case_sensitive ? KMP_search_cs(lps, &ln->raw[j], query, ln->raw_len-j, query_len) : KMP_search_non_cs(lps, &ln->raw[j], query, ln->raw_len-j, query_len)) != NULL){
             // store occurrence
-            j = (match - ln->rendered);
+            j = (match - ln->raw);
             occurrences[line_i][occ_i++] = j;
             j += query_len;
         }
@@ -139,30 +138,4 @@ unsigned long** get_occurrences(text* txt, char *query, unsigned long query_len,
     }
 
     return occurrences;
-
-/*
-
-    for(unsigned long line_i = 0; line_i < editor.txt->lines_num; line_i++){
-        free(occurrences[line_i]);
-    }
-    free(occurrences);
-
-    unsigned long line_i;
-    for (line_i = 0; line_i < editor.txt->lines_num; line_i++){
-        line *ln = &(editor.txt->lines[line_i]);
-        // Find all occurences in line_i
-        char *match;
-        unsigned long j = 0;
-        while(j < ln->rendered_len && (match = KMP_search(lps, &ln->rendered[j], query, ln->rendered_len-j, *query_len)) != NULL){
-            editor.cursor_y = line_i;
-            j = (match - ln->rendered);
-            editor.cursor_x = rx_to_cx(ln, j);
-            j += (*query_len);
-            editor.row_offset = editor.txt->lines_num; // makes matching line be at the top of the screen
-        
-            // read keypress
-        }
-    }
-
-*/
 }

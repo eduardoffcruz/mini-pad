@@ -60,5 +60,15 @@ void terminal_wipe_screen(void);
 */
 void terminal_wipe_line(void);
 
+/*
+* 
+*/
+void enable_mouse_reporting(void);
+
+/*
+* 
+*/
+void disable_mouse_reporting(void);
+
 
 #endif /* TERMINAL_H */

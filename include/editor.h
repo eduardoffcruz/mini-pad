@@ -16,30 +16,35 @@
 
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "minipad editor -- version %s"
-#define DEFAULT_INFO "HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find"
-#define UNSAVED_QUIT_INFO "Unsaved changes: Ctrl-S = save & quit | Ctrl-Q = quit | <ESC> = cancel"
-#define SEARCH_PROMPT "Search: %s [Ctrl→ = next | Ctrl← = prev | <ENTER> = stop | <ESC> = cancel]"
-#define INPUT_PROMPT "Save as: %s [<ENTER> = submit | <ESC> = cancel]"
+#define DEFAULT_INFO "HELP: ^S = save | ^Q = quit | ^F = find"
+#define UNSAVED_QUIT_INFO "Unsaved changes: ^S = save & quit | ^Q = quit | <ESC> = cancel"
+#define SEARCH_PROMPT "Search: %s \n^→ = next | ^← = prev | <ENTER> = stop | <ESC> = cancel | ^↓ = CS %s"
+#define INPUT_PROMPT "Save as: %s \n<ENTER> = submit | <ESC> = cancel"
 #define INFO_PERIOD 8 // seconds
-#define PAGE_SCROLL 3/4 // of screen_height
 #define DEFAULT_CS_SEARCH False
 
 struct editor_state{
     // cursor
-    unsigned long cursor_y, cursor_x; 
+    unsigned long cursor_y;
+    unsigned long cursor_x; // points to raw_text position
     unsigned long render_x; // for rendering tabs
-    unsigned long prev_x; // for smoother scrolling
+    unsigned long prev_cx; // for smoother scrolling
+    unsigned long prev_cy; // for scrolling
+    unsigned int click_x, click_y; // 0 to 255 (relative to screen view)!
     // window dimentions
     unsigned short screen_height, screen_width;
     // scroll
     unsigned long row_offset, col_offset; // refers to how much the cursor is past the top, left of the screen
+
+    char search_cs;
     
     char* filename;
     struct text* txt;
 
     char info[256];
     unsigned int info_len;
-    time_t info_time;  
+    time_t info_time, curr_time;  
+    unsigned short extra_info_lines_num;
     unsigned int default_info_len;  
     
     //struct abuf state_buffer;
@@ -99,7 +104,7 @@ void editor_find(void);
 /*
 * 
 */
-void editor_refresh_screen(char scroll);
+void editor_refresh_screen(void);
 
 /*
 * 
@@ -114,7 +119,12 @@ void editor_render_status_bar(struct dynamic_buffer *buf);
 /*
 *
 */
-void editor_render_info_bar(struct dynamic_buffer *buf);
+unsigned int prepare_render_info_bar(void);
+
+/*
+*
+*/
+void editor_render_info_bar(struct dynamic_buffer *buf, unsigned int newline_i);
 
 /*
 *
@@ -150,12 +160,17 @@ void editor_move_cursor(int key_val);
 /*
 * 
 */
-void editor_line_scroll(void);
+void editor_line_navigation(void);
 
 /*
 *
 */
-void editor_page_scroll(int key_val);
+void editor_scroll(int key_val);
+
+/*
+*
+*/
+void editor_position_mouse_cursor(void);
 
 /*
 *

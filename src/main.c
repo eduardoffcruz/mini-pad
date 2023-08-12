@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     // reads byte input while not EOF and not 'q'
     while(1){
         // wait for one keypress and return it
-        editor_refresh_screen(True);
+        editor_refresh_screen();
         editor_process_keypress();
     }
 
