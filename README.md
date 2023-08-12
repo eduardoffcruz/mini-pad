@@ -1,13 +1,17 @@
 # minipad
-   -- a simple editor, inspired by [kilo](https://viewsourcecode.org/snaptoken/kilo/) --
+
+minipad -- a simple editor, inspired by [kilo](https://viewsourcecode.org/snaptoken/kilo/)
 
 ### Execute
 `./build/minipad <filename>` 
+
 or
+
 `./build/minipad` 
 
 ### Compile
 `cd minipad/`
+
 `make`
 
   Makefile supports:
