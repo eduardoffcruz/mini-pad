@@ -17,8 +17,8 @@
 
 #define APP_VERSION "1.0"
 #define WELCOME_MSG "minipad editor -- version %s"
-#define DEFAULT_INFO "HELP: ^S = save | ^Q = quit | ^F = find"
-#define UNSAVED_QUIT_INFO "Unsaved changes: ^S = save & quit | ^Q = quit | <ESC> = cancel"
+#define DEFAULT_INFO "HELP: ^S = save | ^X = quit | ^F = find"
+#define UNSAVED_QUIT_INFO "Unsaved changes: ^S = save & quit | ^X = quit | <ESC> = cancel"
 #define SEARCH_PROMPT "Search: %s \n^→ = next | ^← = prev | <ENTER> = stop | <ESC> = cancel | ^↓ = %s case-sensitive"
 #define INPUT_PROMPT "Save as: %s \n<ENTER> = submit | <ESC> = cancel"
 #define INFO_PERIOD 8 // seconds

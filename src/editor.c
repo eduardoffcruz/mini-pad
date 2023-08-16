@@ -357,7 +357,7 @@ void editor_process_keypress(void){
             editor_insert_newline();
             break;
 
-        case CTRL_KEY('q'):
+        case CTRL_KEY('x'):
             if (editor.txt->modified && !insist_quit){
                 insist_quit = True;
                 editor_set_info(UNSAVED_QUIT_INFO);
@@ -853,7 +853,7 @@ void editor_search_prompt(char* prompt){
             // present all occs, highlighting nearest occurence
             // TODO: highlight visible text
 
-        } else if (key_val == ESC || key_val == CTRL_KEY('q')){
+        } else if (key_val == ESC || key_val == CTRL_KEY('x')){
             // cancel search and get back to previous cursor position
             // TODO: stop highlighing if toggled on
             editor.cursor_x = prev_cursor_x, editor.cursor_y = prev_cursor_y;
@@ -939,7 +939,7 @@ char* editor_input_prompt(char* prompt, size_t* input_len){
         int ch = editor_read_keypress();
         if ((ch == DEL_KEY || ch == CTRL_KEY('h') || ch == BACKSPACE) && (*input_len) != 0){
             buf[--(*input_len)] = 0;
-        } else if (ch == ESC || ch == CTRL_KEY('q')){
+        } else if (ch == ESC || ch == CTRL_KEY('x')){
             editor_set_info("");
             free(buf);
             return NULL;
