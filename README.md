@@ -22,8 +22,11 @@ or
 
 ## Note
 A lot of functionality is yet to be implemented (and improved).
-- [x] -
-- [x] -
-- [ ] new file ^N
-- [ ] read editor config from file
+- [x] search text
+- [x] read & edit files
+- [x] save file changes
+- [ ] ^N for new file
+- [ ] support horizontal scroll bar
+- [ ] fix mousepad interaction with terminal (macOS)
+- [ ] import editor config from file
 - [ ] text highlighing
