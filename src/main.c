@@ -13,10 +13,10 @@ int main(int argc, char *argv[]) {
             editor_open_file(argv[1]);
         } else{
             // file doesn't exists, create new empty file assuming such name
-            editor_empty_file(argv[1]);
+            editor_new_file(argv[1]);
         }
     } else{
-        editor_empty_file(NULL);
+        editor_new_file(NULL);
     }
 
     //editor_set_info("HELP: Ctrl-Q = quit");

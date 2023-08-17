@@ -22,16 +22,16 @@ void editor_init(void){
     editor.filename = NULL;
     editor.txt = NULL;
 
-    editor.info[0] = 0;
-    editor.info_len = 0U;
-    editor.info_time = 0;
+    editor.status[0] = 0;
+    editor.status_len = 0U;
+    editor.status_time = 0;
     editor.curr_time = 0;
-    editor.extra_info_lines_num = 0;
-    editor.default_info_len = strlen(DEFAULT_INFO);
+    editor.extra_status_lines_num = 0;
+    editor.default_status_len = strlen(DEFAULT_STATUS);
 
     //editor.txt = INIT_TEXT;
 
-    editor_update_text_window_size();
+    editor_update_text_view_dims();
 }
 
 void editor_open_file(const char *filename){
@@ -48,7 +48,7 @@ void editor_open_file(const char *filename){
     editor.filename = strdup(filename);
 }
 
-void editor_empty_file(const char *filename){
+void editor_new_file(const char *filename){
     free_text(editor.txt);
     if ((editor.txt = new_text()) == NULL){
         die("new_text");
@@ -63,6 +63,7 @@ void editor_empty_file(const char *filename){
         free(editor.filename);
         editor.filename = strdup(filename);
     }
+    //editor.txt->modified = True;
 }
 
 void editor_insert_char(char ch){
@@ -139,13 +140,13 @@ void editor_save_file(void){
     // Request filename if NULL
     size_t input_len;
     if (editor.filename == NULL && (editor.filename = editor_input_prompt(INPUT_PROMPT, &input_len)) == NULL){
-        editor_set_info("Save aborted.");
+        editor_set_status("Save aborted.");
         return;
     }
 
     // Check if text has been modified
     if (!editor.txt->modified){
-        editor_set_info("Saved.");
+        editor_set_status("Saved.");
         return;
     }
 
@@ -155,36 +156,42 @@ void editor_save_file(void){
         case 0:
             // Update modified flag
             editor.txt->modified = False; // reset
-            editor_set_info("Your changes have been saved.");
+            editor_set_status("Your changes have been saved.");
             break;
         case -1:
-            editor_set_info("Failed to save file: no filename");
+            editor_set_status("Failed to save file: no filename");
             break;
         case -2:
         case -3:
         case -4:
         case -5:
-            editor_set_info("Failed to save file: %s", strerror(errno));
+            editor_set_status("Failed to save file: %s", strerror(errno));
             break;
     }
 
     return;    
 }
 
-
 void editor_find(void){
     editor_search_prompt(SEARCH_PROMPT);
-    //editor.extra_info_lines_num = 0;
+    //editor.extra_status_lines_num = 0;
+}
+
+void editor_quit(void){
+    free(editor.filename);
+    free_text(editor.txt);
+    terminal_clear();
+    exit(0);
 }
 
 
 /*** rendering ***/
 
 void editor_refresh_screen(){
-    unsigned int newline_i = prepare_render_info_bar();
-    editor_update_text_window_size(); // keep text window size updated
+    unsigned int newline_i = evaluate_status_bar_dimention();
+    editor_update_text_view_dims(); // keep text window size updated
 
-    editor_line_navigation();
+    editor_adjust_text_view();
     
     struct dynamic_buffer buf = INIT_DYNAMIC_BUFFER;
 
@@ -192,8 +199,8 @@ void editor_refresh_screen(){
     append_buffer(&buf, "\x1b[H", 3); // position cursor top-left
 
     editor_render_text(&buf);
-    editor_render_status_bar(&buf);
-    editor_render_info_bar(&buf, newline_i);
+    editor_render_file_info_bar(&buf);
+    editor_render_status_bar(&buf, newline_i);
 
     // position cursor in (row,col)
     char cmd[64];
@@ -203,7 +210,7 @@ void editor_refresh_screen(){
     append_buffer(&buf, "\x1b[?25h", 6); // show cursor
      
     /*char aux[100];
-    sprintf(aux,"[%d,%d,%d]",editor.row_offset,editor.cursor_y,editor.screen_height);
+    sprintf(aux,"[%d,%d,%d]",editor.row_offset,editor.cursor_y,editor.text_view_height);
     append_buffer(&buf,aux,strlen(aux));*/
 
     write(STDOUT_FILENO, buf.bytes, buf.len);
@@ -212,16 +219,16 @@ void editor_refresh_screen(){
 
 void editor_render_text(struct dynamic_buffer *buf) {
     unsigned int y;
-    for (y = 0; y < editor.screen_height; y++) {
+    for (y = 0; y < editor.text_view_height; y++) {
         unsigned long file_row = y + editor.row_offset;
         if (file_row >= editor.txt->lines_num){
             char welcome_msg[64];
             int welcome_msg_len;
-            if (editor.txt->lines_num == 1 && editor.txt->lines[0].raw_len == 0 && y == editor.screen_height / 3 && (welcome_msg_len = snprintf(welcome_msg, sizeof(welcome_msg), WELCOME_MSG, APP_VERSION)) >= 0) {
-                if (welcome_msg_len > editor.screen_width){
-                    welcome_msg_len = editor.screen_width;
+            if (editor.txt->lines_num == 1 && editor.txt->lines[0].raw_len == 0 && y == editor.text_view_height / 3 && (welcome_msg_len = snprintf(welcome_msg, sizeof(welcome_msg), WELCOME_MSG, APP_VERSION)) >= 0) {
+                if (welcome_msg_len > editor.text_view_width){
+                    welcome_msg_len = editor.text_view_width;
                 }
-                int padding = (editor.screen_width - (unsigned int)welcome_msg_len) / 2;
+                int padding = (editor.text_view_width - (unsigned int)welcome_msg_len) / 2;
                 if (padding) {
                     append_buffer(buf, "~", 1);
                     padding--;
@@ -238,8 +245,8 @@ void editor_render_text(struct dynamic_buffer *buf) {
         } else{
             unsigned long line_len = editor.txt->lines[file_row].rendered_len < editor.col_offset ? 0 : editor.txt->lines[file_row].rendered_len - editor.col_offset;
             if (SHOW_LINE_I){
-                if (line_len + editor.max_digits > editor.screen_width) {
-                    line_len = editor.screen_width - editor.max_digits;
+                if (line_len + editor.max_digits > editor.text_view_width) {
+                    line_len = editor.text_view_width - editor.max_digits;
                 }
                 char line_num[32];
                 if (editor.cursor_y != file_row) append_buffer(buf, "\x1b[2m",4); //\x1b[22m
@@ -252,8 +259,8 @@ void editor_render_text(struct dynamic_buffer *buf) {
                 if (editor.cursor_y != file_row) append_buffer(buf, "\x1b[22m",5);
                 append_buffer(buf, &(editor.txt->lines[file_row].rendered[editor.col_offset]), line_len);
             } else{ // place text (no line_i)
-                if (line_len > editor.screen_width) {
-                    line_len = editor.screen_width;
+                if (line_len > editor.text_view_width) {
+                    line_len = editor.text_view_width;
                 }
                 append_buffer(buf, &(editor.txt->lines[file_row].rendered[editor.col_offset]), line_len);
             }
@@ -261,85 +268,96 @@ void editor_render_text(struct dynamic_buffer *buf) {
         }
 
         append_buffer(buf, "\x1b[K", 3);
-        //if (y < editor.screen_height - 1) {
+        //if (y < editor.text_view_height - 1) {
         append_buffer(buf, "\r\n", 2);
         //}
     }
     //append_buffer(buf, "\r\n", 2);
 }
 
-void editor_render_status_bar(struct dynamic_buffer *buf){
+void editor_render_file_info_bar(struct dynamic_buffer *buf){
     char file_info[64], navigation_info[32];
-    int file_info_len = snprintf(file_info, sizeof(file_info), editor.txt->modified ? "%.20s *" : "%.20s", editor.filename ? editor.filename : "[unnamed]");
-    int navigation_info_len = snprintf(navigation_info, sizeof(navigation_info), "%ld/%ld", editor.cursor_y + 1, editor.txt->lines_num);
+    int file_status_len = snprintf(file_info, sizeof(file_info), editor.txt->modified ? "%.20s *" : "%.20s", editor.filename ? editor.filename : "[unnamed]");
+    int navigation_status_len = snprintf(navigation_info, sizeof(navigation_info), "%ld/%ld", editor.cursor_y + 1, editor.txt->lines_num);
 
     append_buffer(buf, "\x1b[7m", 4); // switch to inverted colors
-    append_buffer(buf, file_info, file_info_len > editor.screen_width ? editor.screen_width : file_info_len);
-    while(editor.screen_width > navigation_info_len + file_info_len){
+    append_buffer(buf, file_info, file_status_len > editor.text_view_width ? editor.text_view_width : file_status_len);
+    while(editor.text_view_width > navigation_status_len + file_status_len){
         append_buffer(buf, " ", 1);
-        file_info_len++;
+        file_status_len++;
     }
     
-    if (editor.screen_width == navigation_info_len + file_info_len){
-        append_buffer(buf, navigation_info, navigation_info_len); // places navigation_info the most to the right
+    if (editor.text_view_width == navigation_status_len + file_status_len){
+        append_buffer(buf, navigation_info, navigation_status_len); // places navigation_info the most to the right
     } 
     append_buffer(buf,"\x1b[m",3); // switch back to normal formating
     append_buffer(buf, "\r\n", 2);
 }
 
-
-unsigned int prepare_render_info_bar(void){
+unsigned int evaluate_status_bar_dimention(void){
     // checks if there's an extra line to be added to screen
-    editor.extra_info_lines_num = 0;
+    editor.extra_status_lines_num = 0;
     unsigned int i = 0;
     editor.curr_time = time(NULL);
-    if (editor.info_len && editor.curr_time - editor.info_time < INFO_PERIOD){
-        while(i < editor.info_len){
-            if (editor.info[i++] == '\n'){
-                // add one extra line for info
-                editor.extra_info_lines_num++;
-                return i;
+    if (editor.status_len && editor.curr_time - editor.status_time < STATUS_PERIOD){
+        while(i < editor.status_len){
+            if (editor.status[i++] == '\n'){
+                // add one extra line for status
+                editor.extra_status_lines_num++;
+                return i; // index where newline is
             }
         }
     } 
     return 0;
 }
 
-void editor_render_info_bar(struct dynamic_buffer *buf, unsigned int newline_i){
-    append_buffer(buf, "\x1b[K", 3); // clear info bar
-    if (editor.info_len && editor.curr_time - editor.info_time < INFO_PERIOD){ // render fresh_info
-        if(editor.extra_info_lines_num != 0){
-            append_buffer(buf, editor.info, newline_i-1 > editor.screen_width ? editor.screen_width : newline_i-1);
+void editor_render_status_bar(struct dynamic_buffer *buf, unsigned int newline_i){
+    append_buffer(buf, "\x1b[K", 3); // clear status bar
+    if (editor.status_len && editor.curr_time - editor.status_time < STATUS_PERIOD){ // render fresh_status
+        if(editor.extra_status_lines_num != 0){
+            append_buffer(buf, editor.status, newline_i-1 > editor.text_view_width ? editor.text_view_width : newline_i-1);
             append_buffer(buf, "\r\n", 2);
             append_buffer(buf, "\x1b[K", 3); // clear line
-            append_buffer(buf, &editor.info[newline_i], editor.info_len-newline_i > editor.screen_width ? editor.screen_width : editor.info_len-newline_i);
-            editor.extra_info_lines_num = 0;
+            append_buffer(buf, &editor.status[newline_i], editor.status_len-newline_i > editor.text_view_width ? editor.text_view_width : editor.status_len-newline_i);
+            editor.extra_status_lines_num = 0;
         }else{ // no extra line
-            append_buffer(buf, editor.info, editor.info_len > editor.screen_width ? editor.screen_width : editor.info_len);
+            append_buffer(buf, editor.status, editor.status_len > editor.text_view_width ? editor.text_view_width : editor.status_len);
         }
-    } else { // render default info (doesn't support extra lines)
-        append_buffer(buf, DEFAULT_INFO, editor.default_info_len > editor.screen_width ? editor.screen_width : editor.default_info_len);
+    } else { // render default status (doesn't support extra lines)
+        append_buffer(buf, DEFAULT_STATUS, editor.default_status_len > editor.text_view_width ? editor.text_view_width : editor.default_status_len);
     }
 }
 
-void editor_set_info(const char *fmt, ...){
+void editor_set_status(const char *fmt, ...){
     // Takes a format str and a variable number of arguments, like the printf family of functions
     va_list args;
     va_start(args, fmt);
-    editor.info_len = vsnprintf(editor.info, sizeof(editor.info), fmt, args); // safe!
+    editor.status_len = vsnprintf(editor.status, sizeof(editor.status), fmt, args); // safe!
     va_end(args);
-    editor.info_time = time(NULL); // timestamp
+    editor.status_time = time(NULL); // timestamp
 }
 
-void editor_update_text_window_size(void){
-    if (terminal_get_window_size(&editor.screen_height, &editor.screen_width) == -1) die("terminal_get_window_size");
-    editor.screen_height -= 2 + editor.extra_info_lines_num; // to hold the status+info bar
+void editor_update_text_view_dims(void){
+    if (terminal_get_window_size(&editor.text_view_height, &editor.text_view_width) == -1) die("terminal_get_window_size");
+    editor.text_view_height -= 2 + editor.extra_status_lines_num; // to hold the file_info+status bar
+}
+
+void ensure_cursor_x(void){
+    unsigned long line_len;
+    if (editor.cursor_y < editor.txt->lines_num){
+        if (editor.cursor_x > (line_len = editor.txt->lines[editor.cursor_y].rendered_len)){
+            editor.cursor_x = line_len;
+        } else if (editor.prev_cx <= line_len) {
+            editor.cursor_x = editor.prev_cx;
+        }
+    }
+    return;
 }
 
 
 /*** keypress handling ***/
 
-int editor_read_keypress(void){
+int read_keypress(void){
     ssize_t nread;
     char byte_in;
     while ((nread = read(STDIN_FILENO, &byte_in, 1)) != 1) {
@@ -351,7 +369,7 @@ int editor_read_keypress(void){
 
 void editor_process_keypress(void){
     static char insist_quit = False;
-    int key_val = editor_read_keypress();
+    int key_val = read_keypress();
     switch (key_val) {
         case ENTER:
             editor_insert_newline();
@@ -360,7 +378,7 @@ void editor_process_keypress(void){
         case CTRL_KEY('x'):
             if (editor.txt->modified && !insist_quit){
                 insist_quit = True;
-                editor_set_info(UNSAVED_QUIT_INFO);
+                editor_set_status(UNSAVED_QUIT_STATUS);
                 return;
             }
             editor_quit();
@@ -387,7 +405,7 @@ void editor_process_keypress(void){
         case LEFT_CLICK:
         case MIDDLE_CLICK:
         case RIGHT_CLICK:
-            editor_handle_click(key_val);
+            editor_handle_mouse_click(key_val);
             break;
         case CLICK_RELEASE: // ignore
             break;
@@ -422,7 +440,7 @@ void editor_process_keypress(void){
         case ESC:
             if (insist_quit){
                 // cancel
-                editor_set_info(DEFAULT_INFO);
+                editor_set_status(DEFAULT_STATUS);
             }
 
             break;
@@ -477,7 +495,7 @@ void editor_move_cursor(int key_val){
             if(editor.cursor_y != 0){
                 editor.cursor_y--;
                 editor.prev_cy = editor.cursor_y;
-                break; // leave switch block (to handle_cursor_x)
+                break; // leave switch block (to ensure_cursor_x)
             } 
             return;
 
@@ -485,7 +503,7 @@ void editor_move_cursor(int key_val){
             if(editor.cursor_y + 1 < editor.txt->lines_num){
                 editor.cursor_y++;
                 editor.prev_cy = editor.cursor_y;
-                break; // leave switch block (to handle_cursor_x)
+                break; // leave switch block (to ensure_cursor_x)
             }
             return;
 
@@ -494,12 +512,12 @@ void editor_move_cursor(int key_val){
     }
 
     // Fix special case 
-    handle_cursor_x();
+    ensure_cursor_x();
     
     return;
 }
 
-void editor_line_navigation(void){
+void editor_adjust_text_view(void){
     editor.render_x = 0;
     if (editor.cursor_y < editor.txt->lines_num){
         editor.render_x = cx_to_rx(&(editor.txt->lines[editor.cursor_y]), editor.cursor_x);
@@ -509,33 +527,33 @@ void editor_line_navigation(void){
     // Vertical scroll
     if(editor.cursor_y < editor.row_offset) // cursor_y is above visible window  
         editor.row_offset = editor.cursor_y; // scroll to where cursor is
-    if(editor.cursor_y >= editor.screen_height + editor.row_offset) // cursor_y is past bottom visible window
-        // editor.row_offset = editor.cursor_y - editor.screen_height + 1;
-        editor.row_offset = editor.cursor_y + 1 < editor.screen_height ? 0 : editor.cursor_y + 1 - editor.screen_height;
+    if(editor.cursor_y >= editor.text_view_height + editor.row_offset) // cursor_y is past bottom visible window
+        // editor.row_offset = editor.cursor_y - editor.text_view_height + 1;
+        editor.row_offset = editor.cursor_y + 1 < editor.text_view_height ? 0 : editor.cursor_y + 1 - editor.text_view_height;
     
     // Horizontal scroll
     if(editor.render_x - (SHOW_LINE_I ? editor.max_digits : 0) < editor.col_offset){
         //editor.col_offset = editor.render_x - editor.max_digits; 
-        editor.col_offset = editor.render_x > editor.screen_width/2 ? editor.render_x - editor.screen_width/2 : 0;
+        editor.col_offset = editor.render_x > editor.text_view_width/2 ? editor.render_x - editor.text_view_width/2 : 0;
     }  
-    if(editor.render_x >= editor.screen_width + editor.col_offset) 
-        // editor.col_offset = editor.render_x - editor.screen_width + 1;
-        editor.col_offset = editor.render_x + 1 < editor.screen_width ? 0 : editor.render_x + 1 - editor.screen_width;
+    if(editor.render_x >= editor.text_view_width + editor.col_offset) 
+        // editor.col_offset = editor.render_x - editor.text_view_width + 1;
+        editor.col_offset = editor.render_x + 1 < editor.text_view_width ? 0 : editor.render_x + 1 - editor.text_view_width;
 }
 
 void editor_scroll(int key_val){
     const unsigned int mouse_scroll_offset = 3; // mouse scroll offset
-    const unsigned int page_scroll_offset = editor.screen_height - 2;//editor.screen_height*3/4;
-    const unsigned int eof_marks = editor.screen_height*2/3;
+    const unsigned int page_scroll_offset = editor.text_view_height - 2;//editor.text_view_height*3/4;
+    const unsigned int eof_marks = editor.text_view_height*2/3;
     switch(key_val){
         case SCROLL_DOWN:
-            if (editor.row_offset + editor.screen_height + mouse_scroll_offset <= editor.txt->lines_num - 1 + eof_marks){
+            if (editor.row_offset + editor.text_view_height + mouse_scroll_offset <= editor.txt->lines_num - 1 + eof_marks){
                 editor.row_offset += mouse_scroll_offset;
-                if(editor.prev_cy >= editor.row_offset && editor.prev_cy <= editor.row_offset+editor.screen_height-1){
+                if(editor.prev_cy >= editor.row_offset && editor.prev_cy <= editor.row_offset+editor.text_view_height-1){
                     editor.cursor_y = editor.prev_cy;
                 } else {
-                    if (editor.prev_cy >= editor.row_offset + editor.screen_height - 1){
-                    editor.cursor_y = editor.row_offset + editor.screen_height - 1;
+                    if (editor.prev_cy >= editor.row_offset + editor.text_view_height - 1){
+                    editor.cursor_y = editor.row_offset + editor.text_view_height - 1;
                     } else{
                         editor.cursor_y = editor.row_offset;
                     }
@@ -549,19 +567,19 @@ void editor_scroll(int key_val){
             } else{
                 editor.row_offset = 0;
             }
-            if(editor.prev_cy >= editor.row_offset && editor.prev_cy <= editor.row_offset+editor.screen_height - 1){
+            if(editor.prev_cy >= editor.row_offset && editor.prev_cy <= editor.row_offset+editor.text_view_height - 1){
                 editor.cursor_y = editor.prev_cy;
             } else {
                 if (editor.prev_cy <= editor.row_offset){
                     editor.cursor_y = editor.row_offset;
                 } else{
-                    editor.cursor_y = editor.row_offset + editor.screen_height > editor.txt->lines_num - 1 ? editor.txt->lines_num - 1: editor.row_offset + editor.screen_height -1;
+                    editor.cursor_y = editor.row_offset + editor.text_view_height > editor.txt->lines_num - 1 ? editor.txt->lines_num - 1: editor.row_offset + editor.text_view_height -1;
                 }
             }
             break;
 
         case PAGE_DOWN:
-            if (editor.row_offset + editor.screen_height >= editor.txt->lines_num - 1 + eof_marks){ // place cursor at bottom of file
+            if (editor.row_offset + editor.text_view_height >= editor.txt->lines_num - 1 + eof_marks){ // place cursor at bottom of file
                 editor.cursor_y = editor.txt->lines_num-1;
             } else{
                 editor.cursor_y += page_scroll_offset;
@@ -569,8 +587,8 @@ void editor_scroll(int key_val){
                     editor.cursor_y = editor.txt->lines_num - 1;
                 }
                 editor.row_offset += page_scroll_offset;
-                if(editor.row_offset+editor.screen_height > editor.txt->lines_num - 1 + eof_marks){
-                    unsigned int y_offset = (editor.row_offset+editor.screen_height) - (editor.txt->lines_num - 1 + eof_marks);
+                if(editor.row_offset+editor.text_view_height > editor.txt->lines_num - 1 + eof_marks){
+                    unsigned int y_offset = (editor.row_offset+editor.text_view_height) - (editor.txt->lines_num - 1 + eof_marks);
                     editor.row_offset -= y_offset; 
                 }
             }
@@ -592,10 +610,10 @@ void editor_scroll(int key_val){
             return;
     }
 
-    handle_cursor_x();
+    ensure_cursor_x();
 }
 
-void editor_handle_click(int key_val){
+void editor_handle_mouse_click(int key_val){
     char event_type;
     switch (key_val){
     case LEFT_CLICK:
@@ -613,7 +631,7 @@ void editor_handle_click(int key_val){
 
     // wait for click_release
     unsigned int prev_click_x = editor.click_x, prev_click_y = editor.click_y; // to keep track for press+release coordinates
-    if(editor_read_keypress() != CLICK_RELEASE){
+    if(read_keypress() != CLICK_RELEASE){
         if(event_type){
             ;
         } // TODO: remove
@@ -667,13 +685,6 @@ void editor_position_mouse_cursor(){
     editor.prev_cx = editor.cursor_x;
     
     return;
-}
-
-void editor_quit(void){
-    free(editor.filename);
-    free_text(editor.txt);
-    terminal_clear();
-    exit(0);
 }
 
 void editor_search_navigation(unsigned long** occs, unsigned long query_len, int key_val){
@@ -839,10 +850,10 @@ void editor_search_prompt(char* prompt){
     unsigned long input_len = 0;
     buf[0] = 0;
     while(input_len*sizeof(char) < buf_size){
-        editor_set_info(prompt, buf, !editor.search_cs ? "ON": "OFF");
+        editor_set_status(prompt, buf, !editor.search_cs ? "ON": "OFF");
         editor_refresh_screen();
 
-        int key_val = editor_read_keypress();
+        int key_val = read_keypress();
         if ((key_val == DEL_KEY || key_val == CTRL_KEY('h') || key_val == BACKSPACE) && input_len != 0){
             buf[--input_len] = 0;
             if (input_len != 0){
@@ -859,7 +870,7 @@ void editor_search_prompt(char* prompt){
             editor.cursor_x = prev_cursor_x, editor.cursor_y = prev_cursor_y;
             editor.prev_cx = editor.cursor_x;
             editor.prev_cy = editor.cursor_y;
-            editor_set_info("");
+            editor_set_status("");
             free_occurrences(occs, editor.txt->lines_num);
             free(buf);
             return;
@@ -867,7 +878,7 @@ void editor_search_prompt(char* prompt){
         } else if (key_val == ENTER || key_val == CTRL_KEY('f')){
             // stop search and continue editing at currently highlighed (selected) position and get back to normal editing
             // TODO: stop highlighing if toggled on
-            editor_set_info("");
+            editor_set_status("");
             free_occurrences(occs, editor.txt->lines_num);
             free(buf);
             return;
@@ -903,7 +914,7 @@ void editor_search_prompt(char* prompt){
             editor_scroll(key_val);
 
         } else if(key_val == LEFT_CLICK || key_val == RIGHT_CLICK || key_val == MIDDLE_CLICK){
-            editor_handle_click(key_val);
+            editor_handle_mouse_click(key_val);
             
         } else if(key_val == CS_TOGGLE){
             editor.search_cs = !editor.search_cs;
@@ -934,18 +945,18 @@ char* editor_input_prompt(char* prompt, size_t* input_len){
     *input_len = 0;
     buf[0] = 0;
     while((*input_len)*sizeof(char) < buf_size){
-        editor_set_info(prompt, buf);
+        editor_set_status(prompt, buf);
         editor_refresh_screen();
-        int ch = editor_read_keypress();
+        int ch = read_keypress();
         if ((ch == DEL_KEY || ch == CTRL_KEY('h') || ch == BACKSPACE) && (*input_len) != 0){
             buf[--(*input_len)] = 0;
         } else if (ch == ESC || ch == CTRL_KEY('x')){
-            editor_set_info("");
+            editor_set_status("");
             free(buf);
             return NULL;
         } else if (ch == ENTER && (*input_len) != 0){
             // for reading input
-            editor_set_info("");
+            editor_set_status("");
             return buf;
         } else if (!iscntrl(ch) && ch < 128){
             // control chars are non-printable characters
@@ -964,20 +975,7 @@ char* editor_input_prompt(char* prompt, size_t* input_len){
 }
 
 
-/*** auxiliar ***/
-
-void handle_cursor_x(void){
-    // Account for special case where cursor goes from end of long line to next smaller line (adjust cursor_x accordingly)
-    unsigned long line_len;
-    if (editor.cursor_y < editor.txt->lines_num){
-        if (editor.cursor_x > (line_len = editor.txt->lines[editor.cursor_y].rendered_len)){
-            editor.cursor_x = line_len;
-        } else if (editor.prev_cx <= line_len) {
-            editor.cursor_x = editor.prev_cx;
-        }
-    }
-    return;
-}
+/*** helper functions ***/
 
 unsigned long cx_to_rx(line *ln, unsigned long cx){
     unsigned long rx = 0;
